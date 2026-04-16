@@ -10,7 +10,7 @@ urlpatterns = [
     path('users/update/<int:pk>/', views.update_user, name='update_user'),
     path('users/partial/<int:pk>/', views.partial_update_user, name='partial_update_user'),
     path('users/delete/<int:pk>/', views.delete_user, name='delete_user'),
-    path('login/', views.login_user, name='login'),
+    path('login/', views.login_user, name='login_user'),
 
     # Product routes (User)
     path('products/', views.get_products, name='get_products'),
@@ -23,4 +23,10 @@ urlpatterns = [
     path('admin/products/soft-delete/<int:pk>/', views.soft_delete_product, name='soft_delete_product'),
     path('admin/products/restore/<int:pk>/', views.restore_product, name='restore_product'),
     path('admin/products/hard-delete/<int:pk>/', views.hard_delete_product, name='hard_delete_product'),
+
+    path('cart/add/', views.add_to_cart, name='add_to_cart'),
+    path('cart/<int:user_id>/', views.get_cart, name='get_cart'),
+
+    # path('api/auth/google/', views.google_auth, name='google-auth'),
+    path('auth/google/', views.google_auth, name='google-auth'),
 ]

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../services/api_service.dart';
+import 'add_product.dart';
+import 'edit_product.dart';
 
 class AdminHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
-
   const AdminHomePage({super.key, required this.userData});
-
   @override
   State<AdminHomePage> createState() => _AdminHomePageState();
 }
@@ -15,7 +15,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
   List<Product> products = [];
   bool isLoading = true;
   bool showDeleted = false;
-
   @override
   void initState() {
     super.initState();
@@ -24,9 +23,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
 
   Future<void> fetchProducts() async {
     setState(() => isLoading = true);
-    
     final fetchedProducts = await ApiService.getAllProductsAdmin();
-    
     setState(() {
       products = fetchedProducts;
       isLoading = false;
@@ -59,6 +56,17 @@ class _AdminHomePageState extends State<AdminHomePage> {
     }
   }
 
+  void _editProduct(Product product) {
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (context) =>
+                EditProductPage(userData: widget.userData, product: product),
+          ),
+        )
+        .then((_) => fetchProducts()); // Refresh products after editing
+  }
+
   List<Product> get filteredProducts {
     return showDeleted
         ? products.where((p) => p.delFlag).toList()
@@ -79,7 +87,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
             const Text('Admin Dashboard', style: TextStyle(fontSize: 18)),
             Text(
               'Welcome, ${widget.userData['full_name']}',
-              style: const TextStyle(fontSize: 12, color: Colors.lightGreenAccent),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.lightGreenAccent,
+              ),
             ),
           ],
         ),
@@ -108,9 +119,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.1)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -160,6 +169,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
                                 product: product,
                                 onDelete: () => softDeleteProduct(product.id),
                                 onRestore: () => restoreProduct(product.id),
+                                onEdit: () => _editProduct(product),
                               );
                             },
                           ),
@@ -169,9 +179,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // TODO: Navigate to add product page
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Add Product feature coming soon!')),
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => AddProductPage(userData: widget.userData),
+            ),
           );
         },
         backgroundColor: Colors.lightGreenAccent,
@@ -196,10 +207,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
         ),
       ],
     );
@@ -210,12 +218,14 @@ class AdminProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onDelete;
   final VoidCallback onRestore;
+  final VoidCallback onEdit;
 
   const AdminProductCard({
     super.key,
     required this.product,
     required this.onDelete,
     required this.onRestore,
+    required this.onEdit,
   });
 
   @override
@@ -261,7 +271,9 @@ class AdminProductCard extends StatelessWidget {
         title: Text(
           product.name,
           style: TextStyle(
-            color: product.delFlag ? Colors.white.withOpacity(0.5) : Colors.white,
+            color: product.delFlag
+                ? Colors.white.withOpacity(0.5)
+                : Colors.white,
             fontWeight: FontWeight.bold,
             decoration: product.delFlag ? TextDecoration.lineThrough : null,
           ),
@@ -271,7 +283,7 @@ class AdminProductCard extends StatelessWidget {
           children: [
             const SizedBox(height: 4),
             Text(
-              '\$${product.price.toStringAsFixed(2)} • Stock: ${product.stock}',
+              '\₹${product.price.toStringAsFixed(2)} • Stock: ${product.stock}',
               style: TextStyle(color: Colors.white.withOpacity(0.7)),
             ),
             if (product.delFlag)
@@ -303,9 +315,7 @@ class AdminProductCard extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () {
-                      // TODO: Edit product
-                    },
+                    onPressed: onEdit,
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
