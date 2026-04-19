@@ -101,8 +101,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildHomePage() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -443,6 +442,15 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kBgLight,
+      body: SafeArea(child: _buildHomePage()),
     );
   }
 }

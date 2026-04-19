@@ -5,7 +5,7 @@ import 'shared_ui.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'services/api_service.dart';
 import 'services/google_auth_service.dart';
-import 'pages/user_home.dart';
+import 'pages/components/navbar.dart';
 import 'pages/admin_dashboard.dart';
 import 'package:universal_html/html.dart' as html;
 

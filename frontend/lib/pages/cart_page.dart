@@ -147,7 +147,7 @@ class _CartPageState extends State<CartPage> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                          '\$${(item['price'] as num).toStringAsFixed(2)}',
+                                          '\₹${(item['price'] as num).toStringAsFixed(2)}',
                                           style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16)),
@@ -243,8 +243,8 @@ class _CartPageState extends State<CartPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      _summaryRow('Subtotal:', '\$${subtotal.toStringAsFixed(2)}'),
-                      _summaryRow('Delivery Fee:', '\$${deliveryFee.toStringAsFixed(2)}'),
+                      _summaryRow('Subtotal:', '\₹${subtotal.toStringAsFixed(2)}'),
+                      _summaryRow('Delivery Fee:', '\₹${deliveryFee.toStringAsFixed(2)}'),
                       if (promoApplied)
                         _summaryRow('Discount:', '${discountPercent.toInt()}%'),
                       const SizedBox(height: 16),
@@ -259,7 +259,7 @@ class _CartPageState extends State<CartPage> {
                           ),
                           onPressed: () {},
                           child: Text(
-                              'Checkout for \$${total.toStringAsFixed(2)}',
+                              'Checkout for \₹ ${total.toStringAsFixed(2)}',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,

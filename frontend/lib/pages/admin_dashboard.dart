@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../services/api_service.dart';
-import 'add_product.dart';
+import 'admin_product.dart';
 import 'edit_product.dart';
 
 class AdminHomePage extends StatefulWidget {

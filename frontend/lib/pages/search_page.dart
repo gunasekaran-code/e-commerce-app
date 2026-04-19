@@ -15,7 +15,7 @@ class SearchPage extends StatelessWidget {
         children: [
           Icon(Icons.search, size: 64, color: kBrandRed.withOpacity(0.4)),
           const SizedBox(height: 16),
-          const Text('Search Page',
+          const Text('Search Pages',
               style: TextStyle(color: kTextDark, fontSize: 18)),
           const SizedBox(height: 8),
           const Text('Coming Soon',
