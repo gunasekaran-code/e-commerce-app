@@ -1,8 +1,8 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import User, Product, Cart, CartItem
-from .serializers import UserSerializer, ProductSerializer
+from .models import User, Product, Cart, CartItem, Wishlist, WishlistItem
+from .serializers import UserSerializer, ProductSerializer, WishlistSerializer, WishlistItemSerializer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -326,6 +326,7 @@ def get_cart(request, user_id):
     for item in items:
         data.append({
             "id": item.id,
+            "product_id": item.product.id,
             "product_name": item.product.name,
             "price": item.product.price,
             "quantity": item.quantity,
@@ -333,6 +334,85 @@ def get_cart(request, user_id):
         })
 
     return Response(data)
+
+
+@api_view(['PUT', 'PATCH'])
+def update_cart_item(request):
+    """Update quantity of a cart item"""
+    try:
+        user_id = request.data.get('user_id')
+        product_id = request.data.get('product_id')
+        quantity = request.data.get('quantity')
+        
+        if not all([user_id, product_id, quantity]):
+            return Response(
+                {'error': 'user_id, product_id, and quantity are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if quantity < 1:
+            return Response(
+                {'error': 'Quantity must be at least 1'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = User.objects.get(id=user_id)
+        cart = Cart.objects.get(user=user)
+        item = CartItem.objects.get(cart=cart, product_id=product_id)
+        
+        item.quantity = quantity
+        item.save()
+        
+        return Response({
+            'message': 'Cart item updated successfully',
+            'quantity': item.quantity
+        }, status=status.HTTP_200_OK)
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Cart.DoesNotExist:
+        return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
+    except CartItem.DoesNotExist:
+        return Response({'error': 'Product not in cart'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error updating cart item: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST', 'DELETE'])
+def remove_from_cart(request):
+    """Remove a product from the cart"""
+    try:
+        user_id = request.data.get('user_id')
+        product_id = request.data.get('product_id')
+        
+        if not user_id or not product_id:
+            return Response(
+                {'error': 'user_id and product_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = User.objects.get(id=user_id)
+        cart = Cart.objects.get(user=user)
+        item = CartItem.objects.get(cart=cart, product_id=product_id)
+        
+        product_name = item.product.name
+        item.delete()
+        
+        return Response({
+            'message': f'{product_name} removed from cart',
+            'success': True
+        }, status=status.HTTP_200_OK)
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Cart.DoesNotExist:
+        return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
+    except CartItem.DoesNotExist:
+        return Response({'error': 'Product not in cart'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error removing from cart: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -397,3 +477,144 @@ def google_auth(request):
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+# ============= WISHLIST VIEWS =============
+
+@api_view(['GET'])
+def get_wishlist(request, user_id):
+    """Get all items in user's wishlist"""
+    try:
+        wishlist, created = Wishlist.objects.get_or_create(user_id=user_id)
+        items = WishlistItem.objects.filter(wishlist=wishlist)
+        
+        data = []
+        for item in items:
+            data.append({
+                'id': item.id,
+                'product_id': item.product.id,
+                'product_name': item.product.name,
+                'price': item.product.price,
+                'image': item.product.image_url,
+                'rating': item.product.rating,
+                'category': item.product.category,
+                'created_at': item.created_at
+            })
+        
+        return Response(data)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error fetching wishlist: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def add_to_wishlist(request):
+    """Add product to user's wishlist"""
+    try:
+        user_id = request.data.get('user_id')
+        product_id = request.data.get('product_id')
+        
+        if not user_id or not product_id:
+            return Response(
+                {'error': 'user_id and product_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = User.objects.get(id=user_id)
+        product = Product.objects.get(id=product_id)
+        
+        wishlist, created = Wishlist.objects.get_or_create(user=user)
+        
+        item, created = WishlistItem.objects.get_or_create(
+            wishlist=wishlist,
+            product=product
+        )
+        
+        if created:
+            message = 'Product added to wishlist'
+        else:
+            message = 'Product already in wishlist'
+        
+        return Response({
+            'message': message,
+            'is_in_wishlist': True
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Product.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error adding to wishlist: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def remove_from_wishlist(request):
+    """Remove product from user's wishlist"""
+    try:
+        user_id = request.data.get('user_id')
+        product_id = request.data.get('product_id')
+        
+        if not user_id or not product_id:
+            return Response(
+                {'error': 'user_id and product_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = User.objects.get(id=user_id)
+        product = Product.objects.get(id=product_id)
+        
+        wishlist = Wishlist.objects.get(user=user)
+        item = WishlistItem.objects.get(wishlist=wishlist, product=product)
+        item.delete()
+        
+        return Response({
+            'message': 'Product removed from wishlist',
+            'is_in_wishlist': False
+        }, status=status.HTTP_200_OK)
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Product.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Wishlist.DoesNotExist:
+        return Response({'error': 'Wishlist not found'}, status=status.HTTP_404_NOT_FOUND)
+    except WishlistItem.DoesNotExist:
+        return Response({
+            'message': 'Product not in wishlist',
+            'is_in_wishlist': False
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Error removing from wishlist: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def is_product_in_wishlist(request, user_id, product_id):
+    """Check if product is in user's wishlist"""
+    try:
+        user = User.objects.get(id=user_id)
+        product = Product.objects.get(id=product_id)
+        
+        wishlist = Wishlist.objects.filter(user=user).first()
+        
+        if not wishlist:
+            return Response({'is_in_wishlist': False})
+        
+        is_in_wishlist = WishlistItem.objects.filter(
+            wishlist=wishlist,
+            product=product
+        ).exists()
+        
+        return Response({'is_in_wishlist': is_in_wishlist})
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Product.DoesNotExist:
+        return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error checking wishlist: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Product, ProductImage
+from .models import User, Product, ProductImage, Wishlist, WishlistItem
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -32,3 +32,19 @@ class ProductSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation['is_in_stock'] = instance.is_in_stock
         return representation
+
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+
+    class Meta:
+        model = WishlistItem
+        fields = ['id', 'product', 'created_at']
+
+
+class WishlistSerializer(serializers.ModelSerializer):
+    items = WishlistItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'user', 'items', 'created_at', 'updated_at']

@@ -26,6 +26,14 @@ urlpatterns = [
 
     path('cart/add/', views.add_to_cart, name='add_to_cart'),
     path('cart/<int:user_id>/', views.get_cart, name='get_cart'),
+    path('cart/update/', views.update_cart_item, name='update_cart_item'),
+    path('cart/remove/', views.remove_from_cart, name='remove_from_cart'),
+
+    # Wishlist routes
+    path('wishlist/<int:user_id>/', views.get_wishlist, name='get_wishlist'),
+    path('wishlist/add/', views.add_to_wishlist, name='add_to_wishlist'),
+    path('wishlist/remove/', views.remove_from_wishlist, name='remove_from_wishlist'),
+    path('wishlist/check/<int:user_id>/<int:product_id>/', views.is_product_in_wishlist, name='is_product_in_wishlist'),
 
     # path('api/auth/google/', views.google_auth, name='google-auth'),
     path('auth/google/', views.google_auth, name='google-auth'),

@@ -264,6 +264,112 @@ class ApiService {
     return [];
   }
 
+  static Future<bool> updateCartItem({
+    required int userId,
+    required int productId,
+    required int quantity,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/cart/update/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": userId,
+          "product_id": productId,
+          "quantity": quantity,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> removeFromCart({
+    required int userId,
+    required int productId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/cart/remove/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": userId,
+          "product_id": productId,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ============= WISHLIST APIs =============
+
+  static Future<List<dynamic>> getWishlist(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/wishlist/$userId/'));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<bool> addToWishlist({
+    required int userId,
+    required int productId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/wishlist/add/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": userId,
+          "product_id": productId,
+        }),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> removeFromWishlist({
+    required int userId,
+    required int productId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/wishlist/remove/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": userId,
+          "product_id": productId,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> isProductInWishlist({
+    required int userId,
+    required int productId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/wishlist/check/$userId/$productId/'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['is_in_wishlist'] ?? false;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   static Future<double> getExchangeRate() async {
     try {
       final response = await http.get(Uri.parse('https://api.exchangerate-api.com/v4/latest/USD'));

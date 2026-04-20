@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/product_model.dart';
 import '../services/api_service.dart';
+import '../services/wishlist_service.dart';
 import 'product_detail_page.dart';
 import 'cart_page.dart';
 import 'dart:async';
@@ -455,11 +456,99 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends StatefulWidget {
   final Product product;
   final Map<String, dynamic> userData;
 
   const ProductCard({super.key, required this.product, required this.userData});
+
+  @override
+  State<ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<ProductCard> {
+  late bool _isInWishlist;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkWishlistStatus();
+  }
+
+  Future<void> _checkWishlistStatus() async {
+    final status = await ApiService.isProductInWishlist(
+      userId: widget.userData['id'],
+      productId: widget.product.id,
+    );
+    setState(() {
+      _isInWishlist = status;
+    });
+  }
+
+  Future<void> _toggleWishlist() async {
+    try {
+      if (_isInWishlist) {
+        final success = await ApiService.removeFromWishlist(
+          userId: widget.userData['id'],
+          productId: widget.product.id,
+        );
+        if (success) {
+          setState(() {
+            _isInWishlist = false;
+          });
+          // Notify wishlist page of the change
+          WishlistService().notifyWishlistChange(
+            WishlistChangeEvent(
+              productId: widget.product.id,
+              isAdded: false,
+            ),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Removed from wishlist'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        }
+      } else {
+        final success = await ApiService.addToWishlist(
+          userId: widget.userData['id'],
+          productId: widget.product.id,
+        );
+        if (success) {
+          setState(() {
+            _isInWishlist = true;
+          });
+          // Notify wishlist page of the change
+          WishlistService().notifyWishlistChange(
+            WishlistChangeEvent(
+              productId: widget.product.id,
+              isAdded: true,
+            ),
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Added to wishlist'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -469,7 +558,7 @@ class ProductCard extends StatelessWidget {
           context,
           MaterialPageRoute(
             builder: (context) =>
-                ProductDetailPage(productId: product.id, userData: userData),
+                ProductDetailPage(productId: widget.product.id, userData: widget.userData),
           ),
         );
       },
@@ -489,28 +578,62 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(18)),
-              child: product.imageUrl != null
-                  ? Image.network(
-                      product.imageUrl!,
-                      height: 110,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 110,
-                        color: kBrandRedSoft,
-                        child: const Icon(Icons.image_not_supported,
-                            color: kBrandRed, size: 36),
+            // Image Container with Heart Button
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(18)),
+                  child: widget.product.imageUrl != null
+                      ? Image.network(
+                          widget.product.imageUrl!,
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 160,
+                            width: double.infinity,
+                            color: kBrandRedSoft,
+                            child: const Icon(Icons.image_not_supported,
+                                color: kBrandRed, size: 36),
+                          ),
+                        )
+                      : Container(
+                          height: 160,
+                          width: double.infinity,
+                          color: kBrandRedSoft,
+                          child: const Icon(Icons.shopping_bag,
+                              color: kBrandRed, size: 36),
+                        ),
+                ),
+                // Heart Button
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: _toggleWishlist,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    )
-                  : Container(
-                      height: 110,
-                      color: kBrandRedSoft,
-                      child: const Icon(Icons.shopping_bag,
-                          color: kBrandRed, size: 36),
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        _isInWishlist ? Icons.favorite : Icons.favorite_border,
+                        color: kBrandRed,
+                        size: 20,
+                      ),
                     ),
+                  ),
+                ),
+              ],
             ),
             Expanded(
               child: Padding(
@@ -520,7 +643,7 @@ class ProductCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      product.name,
+                      widget.product.name,
                       style: const TextStyle(
                         color: kTextDark,
                         fontWeight: FontWeight.w600,
@@ -533,7 +656,7 @@ class ProductCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '₹${product.price.toStringAsFixed(2)}',
+                          '₹${widget.product.price.toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: kBrandRed,
                             fontWeight: FontWeight.bold,
@@ -546,7 +669,7 @@ class ProductCard extends StatelessWidget {
                                 color: Colors.amber, size: 14),
                             const SizedBox(width: 2),
                             Text(
-                              product.rating.toString(),
+                              widget.product.rating.toString(),
                               style: const TextStyle(
                                 color: kTextMuted,
                                 fontSize: 12,

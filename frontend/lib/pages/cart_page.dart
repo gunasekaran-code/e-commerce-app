@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
+const Color kBrandRed = Color(0xFFE4252A);
+const Color kTextDark = Color(0xFF1A1A1A);
+const Color kTextMuted = Color(0xFF6B6B6B);
+const Color kBackground = Colors.white;
+const Color kSurface = Color(0xFFF7F7F7);
+const Color kBorder = Color(0xFFEAEAEA);
+
 class CartPage extends StatefulWidget {
   final int userId;
   const CartPage({super.key, required this.userId});
@@ -45,15 +52,73 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
-  void updateQty(int index, int delta) {
+  void updateQty(int index, int delta) async {
+    final newQuantity = (cartItems[index]['quantity'] + delta).clamp(1, 99);
+    final productId = cartItems[index]['product_id'];
+    
+    // Optimistically update UI
     setState(() {
-      cartItems[index]['quantity'] =
-          (cartItems[index]['quantity'] + delta).clamp(1, 99);
+      cartItems[index]['quantity'] = newQuantity;
     });
+    
+    // Update in backend
+    final success = await ApiService.updateCartItem(
+      userId: widget.userId,
+      productId: productId,
+      quantity: newQuantity,
+    );
+    
+    if (!success) {
+      // Revert if update fails
+      setState(() {
+        cartItems[index]['quantity'] = cartItems[index]['quantity'] - delta;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to update quantity'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
-  void removeItem(int index) {
+  void removeItem(int index) async {
+    final productId = cartItems[index]['product_id'];
+    final productName = cartItems[index]['product_name'];
+    
+    // Store in case we need to restore
+    final removedItem = cartItems[index];
+    
+    // Optimistically remove from UI
     setState(() => cartItems.removeAt(index));
+    
+    // Remove from backend
+    final success = await ApiService.removeFromCart(
+      userId: widget.userId,
+      productId: productId,
+    );
+    
+    if (!success) {
+      // Restore if removal fails
+      setState(() => cartItems.insert(index, removedItem));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to remove item'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$productName removed from cart'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -67,154 +132,215 @@ class _CartPageState extends State<CartPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('My cart',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+        title: const Text(
+        'My Cart',
+        style: TextStyle(
+          color: kBrandRed,
+          fontSize: 21,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.more_horiz, color: Colors.black),
-            onPressed: () {},
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.more_horiz, color: Colors.black),
+          //   onPressed: () {},
+          // ),
         ],
       ),
       body: loading
           ? const Center(
               child: CircularProgressIndicator( color: Color(0xFFE4252A)))
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: cartItems.length,
-                    separatorBuilder: (_, __) => const Divider(height: 24),
-                    itemBuilder: (context, index) {
-                      final item = cartItems[index];
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+          : cartItems.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.shopping_cart_outlined,
+                          size: 80, color: const Color(0xFFE4252A).withOpacity(0.3)),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Your cart is empty',
+                        style: TextStyle(
+                          color: kTextDark,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
-                        child: Row(
-                          children: [
-                            // Product image
-                            Container(
-                              width: 80,
-                              height: 80,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Add items to get started',
+                        style: TextStyle(
+                          color: kTextMuted,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE4252A),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          'Continue Shopping',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  children: [
+                    Expanded(
+                      child: RefreshIndicator(
+                        color: const Color(0xFFE4252A),
+                        onRefresh: () async {
+                          await Future.delayed(const Duration(milliseconds: 500));
+                          loadCart();
+                        },
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: cartItems.length,
+                          separatorBuilder: (_, __) => const Divider(height: 24),
+                          itemBuilder: (context, index) {
+                            final item = cartItems[index];
+                            return Container(
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEEEEEE),
-                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(item['image'],
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                        Icons.image, color: Colors.grey)),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(item['product_name'],
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 16)),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () => removeItem(index),
-                                        child: const Icon(Icons.close,
-                                            size: 18, color: Colors.grey),
-                                      ),
-                                    ],
+                                  // Product image
+                                  Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEEEEEE),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(item['image'],
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => const Icon(
+                                              Icons.image, color: Colors.grey)),
+                                    ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(item['variant'] ?? '',
-                                      style: TextStyle(
-                                          color: Colors.grey[500],
-                                          fontSize: 13)),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                          '\₹${(item['price'] as num).toStringAsFixed(2)}',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16)),
-                                      // Qty controls
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                              color: Colors.grey[300]!),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Row(
+                                  const SizedBox(width: 12),
+                                  // Info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
-                                            _qtyButton(Icons.remove, () =>
-                                                updateQty(index, -1)),
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 12),
-                                              child: Text(
-                                                  '${item['quantity']}',
+                                            Expanded(
+                                              child: Text(item['product_name'],
                                                   style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600)),
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 16)),
                                             ),
-                                            _qtyButton(Icons.add, () =>
-                                                updateQty(index, 1),
-                                                highlight: true),
+                                            GestureDetector(
+                                              onTap: () => removeItem(index),
+                                              child: const Icon(Icons.close,
+                                                  size: 18, color: Colors.grey),
+                                            ),
                                           ],
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 2),
+                                        Text(item['variant'] ?? '',
+                                            style: TextStyle(
+                                                color: Colors.grey[500],
+                                                fontSize: 13)),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                                '\₹${(item['price'] as num).toStringAsFixed(2)}',
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16)),
+                                            // Qty controls
+                                                  Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: Colors.grey[300]!),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  _qtyButton(Icons.remove, () =>
+                                                      updateQty(index, -1)),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                            horizontal: 12),
+                                                    child: Text(
+                                                        '${item['quantity']}',
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w600)),
+                                                  ),
+                                                  _qtyButton(Icons.add, () =>
+                                                      updateQty(index, 1),
+                                                      highlight: true),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    // Bottom section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      child: Column(
+                        children: [
+                          // Promo code
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // Bottom section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(20)),
-                  ),
-                  child: Column(
-                    children: [
-                      // Promo code
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                onChanged: (v) => promoCode = v,
-                                decoration: const InputDecoration(
-                                  hintText: 'Promo code',
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    onChanged: (v) => promoCode = v,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Promo code',
                                   border: InputBorder.none,
                                   isDense: true,
                                 ),

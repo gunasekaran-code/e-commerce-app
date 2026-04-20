@@ -123,7 +123,7 @@ class _UserHomePageState extends State<UserHomePage> {
           children: [
             HomePage(userData: widget.userData),
             const SearchPage(),
-            const WishlistPage(),
+            WishlistPage(userData: widget.userData),
             ProfilePage(userData: widget.userData),
           ],
         ),
