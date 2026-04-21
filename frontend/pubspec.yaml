@@ -21,9 +21,15 @@ version: 1.0.0+1
 environment:
   sdk: ^3.11.4
 
+dependency_overrides:
+  image_picker_android: ^0.8.9+1
+  image_picker_ios: ^0.8.9+1
+  image_picker_platform_interface: ^2.9.3
+  image_picker_linux: ^0.2.1+1
+  image_picker_macos: ^0.2.1+1
+  image_picker_windows: ^0.2.1+1
 
-
-
+  
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
 # consider running `flutter pub upgrade --major-versions`. Alternatively,
@@ -38,7 +44,7 @@ dependencies:
   google_sign_in: ^6.2.1
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.2.2
-  image_picker: ^1.0.4
+  image_picker: ^1.1.2
   path_provider: ^2.1.2
   universal_html: ^2.3.0
   flutter_svg: ^2.2.4

@@ -4,7 +4,11 @@ import 'package:image_picker/image_picker.dart';
 import '../models/product_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  // static const String baseUrl = 'http://127.0.0.1:8000/api';     // mobile
+  // static const String baseUrl = 'http://10.0.2.2:8000/api';      // chrome
+  // static const String baseUrl = 'http://192.168.1.11/api';         // wifi network 
+  static const String baseUrl = 'http://192.168.1.11:8000/api'; // Added :8000
+
 
   // ============= USER APIs =============
 
@@ -57,12 +61,21 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 10));
 
+      final data = jsonDecode(response.body);
+
       if (response.statusCode == 201) {
-        return {'success': true, 'data': jsonDecode(response.body)};
+        return {'success': true, 'data': data};
+      } else {
+        return {
+          'success': false,
+          'error': data,
+        };
       }
-      return {'success': false};
-    } catch (_) {
-      return {'success': false};
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Network error. Please check your connection.',
+      };
     }
   }
 

@@ -4,7 +4,8 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <application>
+    <application android:label="ecom_app" >
+    
         <!-- Add this meta-data inside <application> -->
         <meta-data
             android:name="com.google.android.gms.version"
