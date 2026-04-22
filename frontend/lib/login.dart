@@ -44,23 +44,87 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+  // void handleLogin() async {
+  //   final email = emailController.text.trim();
+  //   final password = passwordController.text.trim();
+  //   if (email.isEmpty || password.isEmpty) {
+  //     _showSnackBar('Please enter both email and password.', Colors.orange);
+  //     return;
+  //   }
+  //   setState(() => isLoading = true);
+  //   try {
+  //     final result = await ApiService.loginUser(email: email, password: password);
+  //     setState(() => isLoading = false);
+  //     if (result['success']) {
+  //       _showSnackBar('Welcome back! Logging you in...', kBrandRed);
+  //       final userData = result['data']['user'];
+  //       final isAdmin = result['data']['is_admin'] ?? false;
+  //       await Future.delayed(const Duration(milliseconds: 500));
+  //       if (!mounted) return;
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (context) => isAdmin
+  //               ? AdminHomePage(userData: userData)
+  //               : UserHomePage(userData: userData),
+  //         ),
+  //       );
+  //     } else {
+  //       String serverError = result['error'].toString().toLowerCase();
+  //       if (serverError.contains('email') || serverError.contains('not found')) {
+  //         _showSnackBar('This email is not registered. Please create an account.', Colors.blueGrey);
+  //       } else if (serverError.contains('password') || serverError.contains('credentials')) {
+  //         _showSnackBar('Incorrect password. Please try again.', Colors.redAccent);
+  //       } else {
+  //         _showSnackBar(result['error'], Colors.red);
+  //       }
+  //     }
+  //   } catch (e) {
+  //     setState(() => isLoading = false);
+  //     _showSnackBar('Server connection failed.', Colors.red);
+  //   }
+  // }
+
   void handleLogin() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+
     if (email.isEmpty || password.isEmpty) {
       _showSnackBar('Please enter both email and password.', Colors.orange);
       return;
     }
+
     setState(() => isLoading = true);
+
     try {
-      final result = await ApiService.loginUser(email: email, password: password);
+      final result = await ApiService.loginUser(
+        email: email,
+        password: password,
+      );
+
       setState(() => isLoading = false);
-      if (result['success']) {
-        _showSnackBar('Welcome back! Logging you in...', kBrandRed);
-        final userData = result['data']['user'];
-        final isAdmin = result['data']['is_admin'] ?? false;
+
+      // 1. Check if the result itself is null or improperly formatted
+      if (result == null || result is! Map) {
+        _showSnackBar('Invalid response from server.', Colors.red);
+        return;
+      }
+
+      if (result['success'] == true) {
+        _showSnackBar('Welcome back!', kBrandRed);
+
+        // 2. Safe data extraction (prevents "null is not a subtype of Map" errors)
+        final data = result['data'] ?? {};
+        final userData = data['user'] ?? {};
+
+        // 3. Logic to force admin status for specific email
+        final bool isAdmin =
+            (email.toLowerCase() == 'admin@gmail.com') ||
+            (data['is_admin'] == true);
+
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -70,18 +134,34 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       } else {
-        String serverError = result['error'].toString().toLowerCase();
-        if (serverError.contains('email') || serverError.contains('not found')) {
-          _showSnackBar('This email is not registered. Please create an account.', Colors.blueGrey);
-        } else if (serverError.contains('password') || serverError.contains('credentials')) {
-          _showSnackBar('Incorrect password. Please try again.', Colors.redAccent);
+        // 4. Improved error parsing
+        String serverError = (result['error'] ?? 'Unknown error')
+            .toString()
+            .toLowerCase();
+
+        // Handle the "ProgrammingError" or HTML responses gracefully
+        if (serverError.contains('doctype html')) {
+          _showSnackBar(
+            'Server Database Error. Please check backend logs.',
+            Colors.red,
+          );
+          return;
+        }
+
+        if (serverError.contains('email') ||
+            serverError.contains('not found')) {
+          _showSnackBar('Email not registered.', Colors.blueGrey);
+        } else if (serverError.contains('password') ||
+            serverError.contains('credentials')) {
+          _showSnackBar('Incorrect password.', Colors.redAccent);
         } else {
-          _showSnackBar(result['error'], Colors.red);
+          _showSnackBar(result['error'] ?? 'Login failed', Colors.red);
         }
       }
     } catch (e) {
       setState(() => isLoading = false);
-      _showSnackBar('Server connection failed.', Colors.red);
+      debugPrint("Login Error: $e"); // Logs the actual error to your console
+      _showSnackBar('Connection failed. Is the server running?', Colors.red);
     }
   }
 
@@ -95,7 +175,9 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => UserHomePage(userData: result)),
+          MaterialPageRoute(
+            builder: (context) => UserHomePage(userData: result),
+          ),
         );
       } else {
         setState(() => isLoading = false);
@@ -133,7 +215,11 @@ class _LoginPageState extends State<LoginPage> {
                   shape: BoxShape.circle,
                   color: kBrandRed.withOpacity(0.12),
                 ),
-                child: const Icon(Icons.lock_person_rounded, size: 44, color: kBrandRed),
+                child: const Icon(
+                  Icons.lock_person_rounded,
+                  size: 44,
+                  color: kBrandRed,
+                ),
               ),
               const SizedBox(height: 20),
               const Text(
@@ -147,7 +233,10 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 8),
               Text(
                 "Sign in to continue",
-                style: TextStyle(fontSize: 15, color: Colors.black.withOpacity(0.55)),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.black.withOpacity(0.55),
+                ),
               ),
               const SizedBox(height: 32),
 
@@ -174,26 +263,43 @@ class _LoginPageState extends State<LoginPage> {
                     foregroundColor: Colors.white,
                     elevation: 4,
                     shadowColor: kBrandRed.withOpacity(0.4),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   onPressed: isLoading ? null : handleLogin,
                   child: isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("LOGIN",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      : const Text(
+                          "LOGIN",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 20),
 
               Row(
                 children: [
-                  Expanded(child: Divider(color: Colors.black.withOpacity(0.15))),
+                  Expanded(
+                    child: Divider(color: Colors.black.withOpacity(0.15)),
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text("OR",
-                        style: TextStyle(color: Colors.black.withOpacity(0.5), fontWeight: FontWeight.w500)),
+                    child: Text(
+                      "OR",
+                      style: TextStyle(
+                        color: Colors.black.withOpacity(0.5),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                  Expanded(child: Divider(color: Colors.black.withOpacity(0.15))),
+                  Expanded(
+                    child: Divider(color: Colors.black.withOpacity(0.15)),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
@@ -206,15 +312,19 @@ class _LoginPageState extends State<LoginPage> {
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black87,
                     side: BorderSide(color: Colors.black.withOpacity(0.1)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   onPressed: isLoading ? null : handleGoogleSignIn,
                   icon: SvgPicture.network(
                     'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
                     height: 22,
                   ),
-                  label: const Text("Sign in with Google",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  label: const Text(
+                    "Sign in with Google",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -222,15 +332,24 @@ class _LoginPageState extends State<LoginPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text("Don't have an account? ",
-                      style: TextStyle(color: Colors.black.withOpacity(0.65))),
+                  Text(
+                    "Don't have an account? ",
+                    style: TextStyle(color: Colors.black.withOpacity(0.65)),
+                  ),
                   GestureDetector(
                     onTap: () => Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const RegisterPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
                     ),
-                    child: const Text("Register",
-                        style: TextStyle(color: kBrandRed, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      "Register",
+                      style: TextStyle(
+                        color: kBrandRed,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
