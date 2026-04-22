@@ -44,47 +44,6 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  // void handleLogin() async {
-  //   final email = emailController.text.trim();
-  //   final password = passwordController.text.trim();
-  //   if (email.isEmpty || password.isEmpty) {
-  //     _showSnackBar('Please enter both email and password.', Colors.orange);
-  //     return;
-  //   }
-  //   setState(() => isLoading = true);
-  //   try {
-  //     final result = await ApiService.loginUser(email: email, password: password);
-  //     setState(() => isLoading = false);
-  //     if (result['success']) {
-  //       _showSnackBar('Welcome back! Logging you in...', kBrandRed);
-  //       final userData = result['data']['user'];
-  //       final isAdmin = result['data']['is_admin'] ?? false;
-  //       await Future.delayed(const Duration(milliseconds: 500));
-  //       if (!mounted) return;
-  //       Navigator.pushReplacement(
-  //         context,
-  //         MaterialPageRoute(
-  //           builder: (context) => isAdmin
-  //               ? AdminHomePage(userData: userData)
-  //               : UserHomePage(userData: userData),
-  //         ),
-  //       );
-  //     } else {
-  //       String serverError = result['error'].toString().toLowerCase();
-  //       if (serverError.contains('email') || serverError.contains('not found')) {
-  //         _showSnackBar('This email is not registered. Please create an account.', Colors.blueGrey);
-  //       } else if (serverError.contains('password') || serverError.contains('credentials')) {
-  //         _showSnackBar('Incorrect password. Please try again.', Colors.redAccent);
-  //       } else {
-  //         _showSnackBar(result['error'], Colors.red);
-  //       }
-  //     }
-  //   } catch (e) {
-  //     setState(() => isLoading = false);
-  //     _showSnackBar('Server connection failed.', Colors.red);
-  //   }
-  // }
-
   void handleLogin() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
@@ -97,30 +56,23 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => isLoading = true);
 
     try {
-      final result = await ApiService.loginUser(
+      final result = await ApiService.loginUserWithWakeUp(
         email: email,
         password: password,
       );
 
       setState(() => isLoading = false);
 
-      // 1. Check if the result itself is null or improperly formatted
-      if (result == null || result is! Map) {
-        _showSnackBar('Invalid response from server.', Colors.red);
-        return;
-      }
-
       if (result['success'] == true) {
         _showSnackBar('Welcome back!', kBrandRed);
 
-        // 2. Safe data extraction (prevents "null is not a subtype of Map" errors)
-        final data = result['data'] ?? {};
-        final userData = data['user'] ?? {};
+        final data = (result['data'] as Map<String, dynamic>?) ?? {};
+        final userData = (data['user'] as Map<String, dynamic>?) ?? {};
 
-        // 3. Logic to force admin status for specific email
         final bool isAdmin =
-            (email.toLowerCase() == 'admin@gmail.com') ||
-            (data['is_admin'] == true);
+            email.toLowerCase() == 'admin@gmail.com' ||
+            _isAdminFlag(data['is_admin']) ||
+            _isAdminFlag(userData['is_admin']);
 
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
@@ -134,12 +86,9 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       } else {
-        // 4. Improved error parsing
-        String serverError = (result['error'] ?? 'Unknown error')
-            .toString()
-            .toLowerCase();
+        final errorText = (result['error'] ?? 'Login failed').toString();
+        final serverError = errorText.toLowerCase();
 
-        // Handle the "ProgrammingError" or HTML responses gracefully
         if (serverError.contains('doctype html')) {
           _showSnackBar(
             'Server Database Error. Please check backend logs.',
@@ -148,21 +97,27 @@ class _LoginPageState extends State<LoginPage> {
           return;
         }
 
-        if (serverError.contains('email') ||
-            serverError.contains('not found')) {
+        if (serverError.contains('email') || serverError.contains('not found')) {
           _showSnackBar('Email not registered.', Colors.blueGrey);
         } else if (serverError.contains('password') ||
             serverError.contains('credentials')) {
           _showSnackBar('Incorrect password.', Colors.redAccent);
         } else {
-          _showSnackBar(result['error'] ?? 'Login failed', Colors.red);
+          _showSnackBar(errorText, Colors.red);
         }
       }
     } catch (e) {
       setState(() => isLoading = false);
-      debugPrint("Login Error: $e"); // Logs the actual error to your console
+      debugPrint("Login Error: $e");
       _showSnackBar('Connection failed. Is the server running?', Colors.red);
     }
+  }
+
+  bool _isAdminFlag(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    if (value is num) return value == 1;
+    return false;
   }
 
   Future<void> handleGoogleSignIn() async {
@@ -360,3 +315,50 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
+
+
+
+
+
+
+  // void handleLogin() async {
+  //   final email = emailController.text.trim();
+  //   final password = passwordController.text.trim();
+  //   if (email.isEmpty || password.isEmpty) {
+  //     _showSnackBar('Please enter both email and password.', Colors.orange);
+  //     return;
+  //   }
+  //   setState(() => isLoading = true);
+  //   try {
+  //     final result = await ApiService.loginUser(email: email, password: password);
+  //     setState(() => isLoading = false);
+  //     if (result['success']) {
+  //       _showSnackBar('Welcome back! Logging you in...', kBrandRed);
+  //       final userData = result['data']['user'];
+  //       final isAdmin = result['data']['is_admin'] ?? false;
+  //       await Future.delayed(const Duration(milliseconds: 500));
+  //       if (!mounted) return;
+  //       Navigator.pushReplacement(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (context) => isAdmin
+  //               ? AdminHomePage(userData: userData)
+  //               : UserHomePage(userData: userData),
+  //         ),
+  //       );
+  //     } else {
+  //       String serverError = result['error'].toString().toLowerCase();
+  //       if (serverError.contains('email') || serverError.contains('not found')) {
+  //         _showSnackBar('This email is not registered. Please create an account.', Colors.blueGrey);
+  //       } else if (serverError.contains('password') || serverError.contains('credentials')) {
+  //         _showSnackBar('Incorrect password. Please try again.', Colors.redAccent);
+  //       } else {
+  //         _showSnackBar(result['error'], Colors.red);
+  //       }
+  //     }
+  //   } catch (e) {
+  //     setState(() => isLoading = false);
+  //     _showSnackBar('Server connection failed.', Colors.red);
+  //   }
+  // }
