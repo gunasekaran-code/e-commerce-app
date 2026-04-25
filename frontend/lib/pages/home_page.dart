@@ -481,7 +481,7 @@ class ProductCard extends StatefulWidget {
 }
 
 class _ProductCardState extends State<ProductCard> {
-  late bool _isInWishlist;
+  bool _isInWishlist = false;
   late StreamSubscription<WishlistChangeEvent> _wishlistSubscription;
 
   @override

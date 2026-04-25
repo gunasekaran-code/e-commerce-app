@@ -27,7 +27,6 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   Product? product;
   bool isLoading = true;
-  double exchangeRate = 83.0;
   int currentImageIndex = 0;
   late PageController pageController;
 
@@ -45,18 +44,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   }
 
   Future<void> fetchData() async {
-    await Future.wait([fetchProduct(), fetchExchangeRate()]);
+    product = await ApiService.getProductDetail(widget.productId);
     setState(() {
       isLoading = false;
     });
-  }
-
-  Future<void> fetchProduct() async {
-    product = await ApiService.getProductDetail(widget.productId);
-  }
-
-  Future<void> fetchExchangeRate() async {
-    exchangeRate = await ApiService.getExchangeRate();
   }
 
   PreferredSizeWidget _buildAppBar() {
@@ -322,7 +313,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '₹${(product!.price * exchangeRate).toStringAsFixed(2)}',
+                        '₹${product!.price.toStringAsFixed(2)}',
                         style: const TextStyle(
                           color: kTextDark,
                           fontSize: 30,

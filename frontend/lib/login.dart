@@ -121,10 +121,11 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> handleGoogleSignIn() async {
+    if (isLoading) return; // Prevent multiple calls
     setState(() => isLoading = true);
     try {
       final result = await _googleAuthService.signInWithGoogle();
-      if (result != null) {
+      if (result != null && mounted) {
         _showSnackBar('Google Sign-In successful!', kBrandRed);
         await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
@@ -134,13 +135,15 @@ class _LoginPageState extends State<LoginPage> {
             builder: (context) => UserHomePage(userData: result),
           ),
         );
-      } else {
+      } else if (mounted) {
         setState(() => isLoading = false);
         _showSnackBar('Google Sign-In cancelled.', Colors.orange);
       }
     } catch (e) {
-      setState(() => isLoading = false);
-      _showSnackBar('Google Sign-In error: ${e.toString()}', Colors.red);
+      if (mounted) {
+        setState(() => isLoading = false);
+        _showSnackBar('Google Sign-In error: ${e.toString()}', Colors.red);
+      }
     }
   }
 

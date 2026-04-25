@@ -3,21 +3,23 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 class GoogleAuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: '935244299106-v20skm9cgmkcdguqkko7fuais8ks3f95.apps.googleusercontent.com', // Add this
+    clientId: '935244299106-v20skm9cgmkcdguqkko7fuais8ks3f95.apps.googleusercontent.com',
     scopes: ['email', 'profile'],
   );
 
   Future<Map<String, dynamic>?> signInWithGoogle() async {
     try {
-      GoogleSignInAccount? account;
+      GoogleSignInAccount? account = _googleSignIn.currentUser;
       
-      if (kIsWeb) {
-        // For web, try silent sign-in first
-        account = await _googleSignIn.signInSilently();
-        account ??= await _googleSignIn.signIn();
-      } else {
-        // For mobile/desktop
-        account = await _googleSignIn.signIn();
+      if (account == null) {
+        if (kIsWeb) {
+          // For web, use signIn() directly to avoid double-completion issues
+          account = await _googleSignIn.signIn();
+        } else {
+          // For mobile/desktop, try silent first
+          account = await _googleSignIn.signInSilently().catchError((_) => null);
+          account ??= await _googleSignIn.signIn();
+        }
       }
       
       if (account != null) {
@@ -40,6 +42,10 @@ class GoogleAuthService {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    try {
+      await _googleSignIn.signOut();
+    } catch (error) {
+      print('Google Sign-Out Error: $error');
+    }
   }
 }

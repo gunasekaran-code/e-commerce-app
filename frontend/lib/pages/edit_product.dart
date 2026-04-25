@@ -31,6 +31,7 @@ class _EditProductPageState extends State<EditProductPage> {
   bool _isLoading = false;
   XFile? _selectedImageFile;
   Uint8List? _selectedImageBytes;
+  bool _removeExistingImage = false;
   final ImagePicker _picker = ImagePicker();
 
   final List<String> _categories = [
@@ -57,6 +58,7 @@ class _EditProductPageState extends State<EditProductPage> {
     _stockController.text = widget.product.stock.toString();
     _skuController.text = widget.product.skuId?.toString() ?? '';
     _selectedCategory = widget.product.category;
+    _removeExistingImage = false;
   }
 
   @override
@@ -187,6 +189,7 @@ class _EditProductPageState extends State<EditProductPage> {
       imageFile: _selectedImageFile,
       stock: stock,
       skuId: skuId,
+      removeImage: _removeExistingImage,
     );
 
     setState(() => _isLoading = false);
@@ -450,7 +453,7 @@ class _EditProductPageState extends State<EditProductPage> {
                           ],
                         ),
                       )
-                    else if (widget.product.imageUrl != null)
+                    else if (widget.product.imageUrl != null && !_removeExistingImage)
                       Container(
                         height: 200,
                         width: double.infinity,
@@ -469,11 +472,10 @@ class _EditProductPageState extends State<EditProductPage> {
                               child: IconButton(
                                 onPressed: () {
                                   setState(() {
-                                    _selectedImageFile = null;
-                                    _selectedImageBytes = null;
+                                    _removeExistingImage = true;
                                   });
-                                  // Note: This doesn't remove the existing image from server
-                                  // You might want to add a flag to remove existing image
+                                  // Note: This will remove the existing image from display
+                                  // The server removal will be handled during update
                                 },
                                 icon: const Icon(
                                   Icons.close,

@@ -33,10 +33,10 @@ class ApiService {
     try {
       _log('Pinging server to wake it up...');
       final response = await http
-          .get(Uri.parse(baseUrl.replaceAll('/api', '')))
+          .get(Uri.parse('$baseUrl/products/'))
           .timeout(const Duration(seconds: 30));
       _log('Ping response: ${response.statusCode}');
-      return response.statusCode == 200 || response.statusCode == 404;
+      return response.statusCode == 200;
     } catch (e) {
       _logError('Ping failed: $e');
       return false;
@@ -345,6 +345,7 @@ class ApiService {
     required int stock,
     double rating = 0.0,
     int? skuId,
+    bool removeImage = false,
   }) async {
     try {
       _log('Updating product ID: $id');
@@ -363,6 +364,9 @@ class ApiService {
       request.fields['rating'] = rating.toString();
       if (skuId != null) {
         request.fields['sku_id'] = skuId.toString();
+      }
+      if (removeImage) {
+        request.fields['remove_image'] = 'true';
       }
 
       // Add image file if selected
