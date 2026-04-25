@@ -147,7 +147,7 @@ def login_user(request):
 @api_view(['GET'])
 def get_products(request):
     """Get all active products (del_flag=False)"""
-    products = Product.objects.filter(del_flag=False)
+    products = Product.objects.filter(del_flag=False).select_related('category')
     
     # Optional filtering
     category = request.GET.get('category')
@@ -539,18 +539,24 @@ def get_wishlist(request, user_id):
     """Get all items in user's wishlist"""
     try:
         wishlist, created = Wishlist.objects.get_or_create(user_id=user_id)
-        items = WishlistItem.objects.filter(wishlist=wishlist)
+        items = WishlistItem.objects.filter(wishlist=wishlist).select_related('product__category')
         
         data = []
         for item in items:
+            product = item.product
+            category_value = None
+            try:
+                category_value = product.category.display_name or product.category.name
+            except Exception:
+                category_value = None
             data.append({
                 'id': item.id,
-                'product_id': item.product.id,
-                'product_name': item.product.name,
-                'price': item.product.price,
-                'image': item.product.image_url,
-                'rating': item.product.rating,
-                'category': item.product.category,
+                'product_id': product.id,
+                'product_name': product.name,
+                'price': product.price,
+                'image': product.image_url,
+                'rating': product.rating,
+                'category': category_value,
                 'created_at': item.created_at
             })
         

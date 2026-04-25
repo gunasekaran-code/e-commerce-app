@@ -33,17 +33,11 @@ class _WishlistPageState extends State<WishlistPage> {
 
   void _listenToWishlistChanges() {
     _wishlistSubscription = WishlistService().wishlistChangeStream.listen((event) {
-      if (mounted) {
-        if (event.isAdded) {
-          // Product was added to wishlist, reload the wishlist
-          _loadWishlist();
-        } else {
-          // Product was removed, update the UI immediately
-          setState(() {
-            wishlistItems.removeWhere((item) => item['product_id'] == event.productId);
-          });
-        }
-      }
+      if (!mounted) return;
+
+      // Always refresh the wishlist after any change so the page stays in sync
+      // with the latest backend state and product IDs.
+      _loadWishlist();
     });
   }
 

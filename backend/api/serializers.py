@@ -23,18 +23,25 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    category_display_name = serializers.CharField(source='category.display_name', read_only=True)
+    category_name = serializers.SerializerMethodField()
+    category_display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = '__all__'
-        # fields = [
-        #     'id', 'name', 'description', 'price', 'category', 'category_name', 'category_display_name',
-        #     'image_url', 'images', 'stock', 'rating', 'del_flag',
-        #     'created_at', 'updated_at', 'created_by'
-        # ]
         read_only_fields = ['created_at', 'updated_at', 'created_by']
+
+    def get_category_name(self, obj):
+        try:
+            return obj.category.name
+        except Exception:
+            return None
+
+    def get_category_display_name(self, obj):
+        try:
+            return obj.category.display_name
+        except Exception:
+            return None
 
     def to_representation(self, instance):
         """Custom representation to include is_in_stock"""

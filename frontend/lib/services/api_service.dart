@@ -7,8 +7,8 @@ import '../models/product_model.dart';
 class ApiService {
 
 
-  static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render URL
-  // static const String baseUrl = 'http://127.0.0.1:8000/api';     // localhost for iOS
+  // static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render URL
+  static const String baseUrl = 'http://127.0.0.1:8000/api';     // localhost for iOS
 
 
   // static const String baseUrl = 'http://10.0.2.2:8000/api';      // mobile emulator (Android Studio)
