@@ -7,8 +7,8 @@ import '../models/product_model.dart';
 class ApiService {
 
 
-  // static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render URL
-  static const String baseUrl = 'http://127.0.0.1:8000/api';     // localhost for iOS
+  static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render URL
+  // static const String baseUrl = 'http://127.0.0.1:8000/api';     // localhost for iOS
 
 
   // static const String baseUrl = 'http://10.0.2.2:8000/api';      // mobile emulator (Android Studio)
@@ -218,6 +218,7 @@ class ApiService {
         return data.map((json) => Product.fromJson(json)).toList();
       } else {
         _logError('Failed to fetch products: ${response.statusCode}');
+        _logError('Products response body: ${response.body}');
       }
     } catch (e) {
       _logError('Error fetching products: $e');
@@ -229,10 +230,13 @@ class ApiService {
     try {
       _log('Fetching all admin products');
       final response = await http.get(Uri.parse('$baseUrl/admin/products/'));
-      
+
+      _log('Admin products response: ${response.statusCode}');
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Product.fromJson(json)).toList();
+      } else {
+        _logError('Admin products response body: ${response.body}');
       }
     } catch (e) {
       _logError('Error fetching admin products: $e');

@@ -1,28 +1,65 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.db import IntegrityError
 from django.db.models import Q
+from django.db.utils import OperationalError, ProgrammingError
 from .models import User, Product, Cart, CartItem, Wishlist, WishlistItem, Category
 from .serializers import UserSerializer, ProductSerializer, WishlistSerializer, WishlistItemSerializer, CategorySerializer
 import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _schema_error_response(resource_name):
+    return Response(
+        {
+            'error': f'{resource_name} database is not ready on the server. '
+                     'Commit migrations, redeploy, and run `python manage.py migrate` on Render.'
+        },
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
+
 # ================= CATEGORY APIs =================
 
 @api_view(['GET'])
 def get_categories(request):
-    categories = Category.objects.filter(is_active=True)
-    serializer = CategorySerializer(categories, many=True)
-    return Response(serializer.data)
+    try:
+        categories = Category.objects.filter(is_active=True)
+        serializer = CategorySerializer(categories, many=True)
+        return Response(serializer.data)
+    except (OperationalError, ProgrammingError):
+        logger.exception("Category table is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Category')
+    except Exception:
+        logger.exception("Unexpected error while fetching categories")
+        return Response(
+            {'error': 'Unexpected server error while fetching categories.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 @api_view(['POST'])
 def create_category(request):
-    serializer = CategorySerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        serializer = CategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except IntegrityError:
+        return Response(
+            {'error': 'A category with this name already exists.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except (OperationalError, ProgrammingError):
+        logger.exception("Category table is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Category')
+    except Exception:
+        logger.exception("Unexpected error while creating category")
+        return Response(
+            {'error': 'Unexpected server error while creating category.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 @api_view(['PUT'])
 def update_category(request, pk):
@@ -35,6 +72,15 @@ def update_category(request, pk):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     except Category.DoesNotExist:
         return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+    except (OperationalError, ProgrammingError):
+        logger.exception("Category table is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Category')
+    except Exception:
+        logger.exception("Unexpected error while updating category")
+        return Response(
+            {'error': 'Unexpected server error while updating category.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 @api_view(['DELETE'])
 def delete_category(request, pk):
@@ -45,6 +91,15 @@ def delete_category(request, pk):
         return Response({'message': 'Category deactivated successfully'})
     except Category.DoesNotExist:
         return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+    except (OperationalError, ProgrammingError):
+        logger.exception("Category table is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Category')
+    except Exception:
+        logger.exception("Unexpected error while deleting category")
+        return Response(
+            {'error': 'Unexpected server error while deleting category.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 # ================= USER APIs =================
 @api_view(['GET'])
@@ -147,35 +202,54 @@ def login_user(request):
 @api_view(['GET'])
 def get_products(request):
     """Get all active products (del_flag=False)"""
-    products = Product.objects.filter(del_flag=False).select_related('category')
-    
-    # Optional filtering
-    category = request.GET.get('category')
-    if category:
-        category = category.strip()
-        if category.lower() == 'all':
-            pass
-        elif category.isdigit():
-            products = products.filter(category_id=int(category))
-        else:
-            category_obj = Category.objects.filter(
-                Q(name__iexact=category) | Q(display_name__iexact=category)
-            ).first()
-            if category_obj:
-                products = products.filter(category_id=category_obj.id)
+    try:
+        products = Product.objects.filter(del_flag=False).select_related('category')
+
+        category = request.GET.get('category')
+        if category:
+            category = category.strip()
+            if category.lower() == 'all':
+                pass
+            elif category.isdigit():
+                products = products.filter(category_id=int(category))
             else:
-                products = products.none()
-    
-    serializer = ProductSerializer(products, many=True)
-    return Response(serializer.data)
+                category_obj = Category.objects.filter(
+                    Q(name__iexact=category) | Q(display_name__iexact=category)
+                ).first()
+                if category_obj:
+                    products = products.filter(category_id=category_obj.id)
+                else:
+                    products = products.none()
+
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
+    except Exception:
+        logger.exception("Unexpected error while fetching products")
+        return Response(
+            {'error': 'Unexpected server error while fetching products.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(['GET'])
 def get_all_products_admin(request):
     """Admin: Get ALL products including soft-deleted ones"""
-    products = Product.objects.all()
-    serializer = ProductSerializer(products, many=True)
-    return Response(serializer.data)
+    try:
+        products = Product.objects.all().select_related('category')
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
+    except Exception:
+        logger.exception("Unexpected error while fetching admin products")
+        return Response(
+            {'error': 'Unexpected server error while fetching admin products.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(['GET'])
@@ -190,40 +264,52 @@ def get_product_detail(request, pk):
             {'error': 'Product not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
+    except Exception:
+        logger.exception("Unexpected error while fetching product detail")
+        return Response(
+            {'error': 'Unexpected server error while fetching product detail.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(['POST'])
 def create_product(request):
     """Admin: Create new product"""
-    if request.method == 'POST':
-        # Handle both regular POST and multipart form data
-        data = request.data.copy()
-        
-        # Handle file upload
-        if 'image' in request.FILES:
-            image_file = request.FILES['image']
-            # Save the image file and get the URL
-            # For now, we'll save it to media directory
-            import os
-            from django.conf import settings
-            from django.core.files.storage import default_storage
-            
-            # Create filename
-            ext = os.path.splitext(image_file.name)[1]
-            filename = f"products/{data.get('name', 'product').replace(' ', '_')}_{data.get('sku_id', 'no_sku')}{ext}"
-            
-            # Save file
-            file_path = default_storage.save(filename, image_file)
-            image_url = default_storage.url(file_path)
-            if not image_url.startswith('http'):
-                image_url = request.build_absolute_uri(image_url)
-            data['image_url'] = image_url
-        
-        serializer = ProductSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        if request.method == 'POST':
+            data = request.data.copy()
+
+            if 'image' in request.FILES:
+                image_file = request.FILES['image']
+                import os
+                from django.core.files.storage import default_storage
+
+                ext = os.path.splitext(image_file.name)[1]
+                filename = f"products/{data.get('name', 'product').replace(' ', '_')}_{data.get('sku_id', 'no_sku')}{ext}"
+
+                file_path = default_storage.save(filename, image_file)
+                image_url = default_storage.url(file_path)
+                if not image_url.startswith('http'):
+                    image_url = request.build_absolute_uri(image_url)
+                data['image_url'] = image_url
+
+            serializer = ProductSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
+    except Exception:
+        logger.exception("Unexpected error while creating product")
+        return Response(
+            {'error': 'Unexpected server error while creating product.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(['PUT'])
@@ -264,6 +350,15 @@ def update_product(request, pk):
             {'error': 'Product not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
+    except Exception:
+        logger.exception("Unexpected error while updating product")
+        return Response(
+            {'error': 'Unexpected server error while updating product.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(['DELETE'])
@@ -282,6 +377,9 @@ def soft_delete_product(request, pk):
             {'error': 'Product not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
 
 
 @api_view(['POST'])
@@ -300,6 +398,9 @@ def restore_product(request, pk):
             {'error': 'Product not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
 
 
 @api_view(['DELETE'])
@@ -317,6 +418,9 @@ def hard_delete_product(request, pk):
             {'error': 'Product not found'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+    except (OperationalError, ProgrammingError):
+        logger.exception("Product/category schema is unavailable. Run migrations on the deployed server.")
+        return _schema_error_response('Product')
     
 @api_view(['POST'])
 def add_to_cart(request):

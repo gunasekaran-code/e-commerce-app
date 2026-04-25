@@ -49,7 +49,10 @@ class _AdminCategoriesPageState extends State<AdminCategoriesPage> {
         });
       } else {
         setState(() => isLoading = false);
-        _showSnackBar('Failed to load categories', Colors.red);
+        _showSnackBar(
+          result['error'] ?? 'Failed to load categories',
+          Colors.red,
+        );
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -71,6 +74,7 @@ class _AdminCategoriesPageState extends State<AdminCategoriesPage> {
     setState(() => _isSubmitting = false);
 
     if (result['success']) {
+      Navigator.of(context).pop();
       _showSnackBar('Category created successfully', Colors.green);
       _clearForm();
       fetchCategories();
