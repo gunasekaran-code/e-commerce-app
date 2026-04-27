@@ -1,19 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+import '../models/product_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import '../models/product_model.dart';
 
 class ApiService {
 
+  // static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render URL - Use this for deployed backend
+  static const String baseUrl = 'http://127.0.0.1:8000/api';     // localhost chrome (Flutter web)
 
-  static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render URL
-  // static const String baseUrl = 'http://127.0.0.1:8000/api';     // localhost for iOS
-
-
-  // static const String baseUrl = 'http://10.0.2.2:8000/api';      // mobile emulator (Android Studio)
+  // static const String baseUrl = 'http://10.0.2.2:8000/api';        // mobile emulator (Android Studio)
   // static const String baseUrl = 'http://192.168.1.11/api';         // wifi network 
-  // static const String baseUrl = 'http://192.168.1.11:8000/api'; // Added :8000
+  // static const String baseUrl = 'http://192.168.1.11:8000/api';    // Added :8000
 
   // Enable debug mode to see detailed logs
   static const bool debugMode = true;

@@ -1,72 +1,8 @@
-// import 'package:flutter/material.dart';
-// import '../search_page.dart';   
-// import '../wishlist_page.dart'; 
-// import '../profile_page.dart'; 
-// import '../home_page.dart';
-
-// class UserHomePage extends StatefulWidget {
-//   final Map<String, dynamic> userData;
-//   const UserHomePage({super.key, required this.userData});
-
-//   @override
-//   State<UserHomePage> createState() => _UserHomePageState();
-// }
-
-// class _UserHomePageState extends State<UserHomePage> {
-//   int _selectedIndex = 0;
-
-//   void _onItemTapped(int index) {
-//     setState(() => _selectedIndex = index);
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: const Color(0xFFFDF7F7),
-//       body: SafeArea(
-//         child: IndexedStack(
-//           index: _selectedIndex,
-//           children: [
-//             HomePage(userData: widget.userData), 
-//             const SearchPage(),
-//             const WishlistPage(),
-//             ProfilePage(userData: widget.userData),
-//           ],
-//         ),
-//       ),
-//       bottomNavigationBar: Container(
-//         decoration: BoxDecoration(
-//           color: Colors.white,
-//           border: Border(
-//             top: BorderSide(color: Colors.black.withOpacity(0.1), width: 1),
-//           ),
-//         ),
-//         child: BottomNavigationBar(
-//           backgroundColor: Colors.transparent,
-//           elevation: 0,
-//           type: BottomNavigationBarType.fixed,
-//           selectedItemColor: const Color(0xFFE4252A), // kBrandRed
-//           unselectedItemColor: const Color(0xFF6B6B6B), // kTextMuted
-//           currentIndex: _selectedIndex,
-//           onTap: _onItemTapped,
-//           items: const [
-//             BottomNavigationBarItem(icon: Icon(Icons.home_filled),      label: 'Home'),
-//             BottomNavigationBarItem(icon: Icon(Icons.search),            label: 'Search'),
-//             BottomNavigationBarItem(icon: Icon(Icons.favorite_border),   label: 'Favorites'),
-//             BottomNavigationBarItem(icon: Icon(Icons.person_outline),    label: 'Profile'),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
-
-import '../search_page.dart';
+import 'package:flutter/material.dart';
 import '../wishlist_page.dart';
 import '../profile_page.dart';
+import '../search_page.dart';
 import '../home_page.dart';
 
 class UserHomePage extends StatefulWidget {
@@ -123,7 +59,10 @@ class _UserHomePageState extends State<UserHomePage> {
           children: [
             HomePage(userData: widget.userData),
             const SearchPage(),
-            WishlistPage(userData: widget.userData),
+            WishlistPage(
+              userData: widget.userData,
+              onContinueShopping: () => _onItemTapped(0),
+            ),
             ProfilePage(userData: widget.userData),
           ],
         ),
@@ -141,7 +80,7 @@ class _UserHomePageState extends State<UserHomePage> {
         items: [
           _buildNavItem(Icons.home_filled, 'Home', 0),
           _buildNavItem(Icons.search, 'Search', 1),
-          _buildNavItem(Icons.favorite_border, 'Favorites', 2),
+          _buildNavItem(Icons.favorite_border, 'Wishlist', 2),
           _buildNavItem(Icons.person_outline, 'Profile', 3),
         ],
       ),

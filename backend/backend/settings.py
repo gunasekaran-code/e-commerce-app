@@ -132,34 +132,34 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 #phpMySQL
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': os.getenv('DB_NAME', 'ecom_db'),
-#         'USER': os.getenv('DB_USERNAME', 'root'),
-#         'PASSWORD': os.getenv('DB_PASSWORD', 'root'),
-#         'HOST': 'localhost',
-#         'PORT': '8889',
-#         'OPTIONS': {
-#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-#         }
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('DB_NAME', 'ecom_db'),
+        'USER': os.getenv('DB_USERNAME', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'root'),
+        'HOST': 'localhost',
+        'PORT': '8889',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
+    }
+}
 
 # postgreSQL - Render.com
 
-DATABASES = {
-    'default': dj_database_url.config(
+# DATABASES = {
+#     'default': dj_database_url.config(
         
-        default='sqlite:///db.sqlite3',
-        conn_max_age=600,
-        conn_health_checks=True,
+#         default='sqlite:///db.sqlite3',
+#         conn_max_age=600,
+#         conn_health_checks=True,
 
 
-        # default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
-        # conn_max_age=600
-    )
-}
+#         # default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
+#         # conn_max_age=600
+#     )
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

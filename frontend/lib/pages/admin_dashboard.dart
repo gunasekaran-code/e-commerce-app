@@ -320,7 +320,7 @@ class AdminProductCard extends StatelessWidget {
           children: [
             const SizedBox(height: 4),
             Text(
-              '\₹${product.price.toStringAsFixed(2)} • Stock: ${product.stock}',
+              '₹${product.price.toStringAsFixed(2)} • Stock: ${product.stock}',
               style: TextStyle(color: Colors.white.withOpacity(0.7)),
             ),
             if (product.delFlag)

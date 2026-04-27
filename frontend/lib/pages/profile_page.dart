@@ -28,16 +28,17 @@ class ProfilePage extends StatelessWidget {
           child: Column(
             children: [
               _buildHeader(context),
-              const SizedBox(height: 20),
+              const SizedBox(height: 0),
               _buildStatsRow(),
-              const SizedBox(height: 24),
               _buildSectionTitle('Account'),
               _buildActionGroup([
                 _ActionItem(
                   icon: Icons.person_outline_rounded,
                   title: 'Edit Profile',
                   subtitle: 'Update your personal info',
-                  onTap: () {},
+                  onTap: () {
+                   
+                  },
                 ),
                 _ActionItem(
                   icon: Icons.lock_outline_rounded,
@@ -52,7 +53,7 @@ class ProfilePage extends StatelessWidget {
                   onTap: () {},
                 ),
               ]),
-              const SizedBox(height: 20),
+              const SizedBox(height: 35),
               _buildSectionTitle('Preferences'),
               _buildActionGroup([
                 _ActionItem(

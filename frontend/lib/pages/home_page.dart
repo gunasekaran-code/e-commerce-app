@@ -436,7 +436,7 @@ class _HomePageState extends State<HomePage> {
             Image.asset(
               imagePath,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: kBrandRedSoft),
+              errorBuilder: (_, _, _) => Container(color: kBrandRedSoft),
             ),
             Container(
               decoration: BoxDecoration(
@@ -639,7 +639,7 @@ class _ProductCardState extends State<ProductCard> {
                           height: 160,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorBuilder: (_, _, _) => Container(
                             height: 160,
                             width: double.infinity,
                             color: kBrandRedSoft,

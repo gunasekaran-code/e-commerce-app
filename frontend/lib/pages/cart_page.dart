@@ -31,7 +31,7 @@ class _CartPageState extends State<CartPage> {
     loadCart();
   }
 
-  loadCart() async {
+  Future<void> loadCart() async {
     final items = await ApiService.getCart(widget.userId);
     setState(() {
       cartItems = items;
@@ -213,7 +213,7 @@ class _CartPageState extends State<CartPage> {
                         child: ListView.separated(
                           padding: const EdgeInsets.all(16),
                           itemCount: cartItems.length,
-                          separatorBuilder: (_, __) => const Divider(height: 24),
+                          separatorBuilder: (_, _) => const Divider(height: 24),
                           itemBuilder: (context, index) {
                             final item = cartItems[index];
                             return Container(
@@ -236,7 +236,7 @@ class _CartPageState extends State<CartPage> {
                                       borderRadius: BorderRadius.circular(12),
                                       child: Image.network(item['image'],
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => const Icon(
+                                          errorBuilder: (_, _, _) => const Icon(
                                               Icons.image, color: Colors.grey)),
                                     ),
                                   ),
@@ -274,7 +274,7 @@ class _CartPageState extends State<CartPage> {
                                               MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
-                                                '\₹${(item['price'] as num).toStringAsFixed(2)}',
+                                                '₹${(item['price'] as num).toStringAsFixed(2)}',
                                                 style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 16)),
@@ -371,8 +371,8 @@ class _CartPageState extends State<CartPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      _summaryRow('Subtotal:', '\₹${subtotal.toStringAsFixed(2)}'),
-                      _summaryRow('Delivery Fee:', '\₹${deliveryFee.toStringAsFixed(2)}'),
+                      _summaryRow('Subtotal:', '₹${subtotal.toStringAsFixed(2)}'),
+                      _summaryRow('Delivery Fee:', '₹${deliveryFee.toStringAsFixed(2)}'),
                       if (promoApplied)
                         _summaryRow('Discount:', '${discountPercent.toInt()}%'),
                       const SizedBox(height: 16),
@@ -387,7 +387,7 @@ class _CartPageState extends State<CartPage> {
                           ),
                           onPressed: () {},
                           child: Text(
-                              'Checkout for \₹ ${total.toStringAsFixed(2)}',
+                              'Checkout for ₹ ${total.toStringAsFixed(2)}',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,

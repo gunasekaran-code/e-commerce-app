@@ -383,7 +383,7 @@ class _EditProductPageState extends State<EditProductPage> {
               _isLoadingCategories
                   ? const Center(child: CircularProgressIndicator())
                   : DropdownButtonFormField<int>(
-                      value: _selectedCategoryId,
+                      initialValue: _selectedCategoryId,
                       decoration: InputDecoration(
                         labelText: 'Category',
                         labelStyle: const TextStyle(color: Colors.lightGreenAccent),
