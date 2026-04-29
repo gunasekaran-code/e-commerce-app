@@ -24,6 +24,10 @@ def _schema_error_response(resource_name):
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
+
+def _normalize_category_value(value):
+    return value.strip().lower().replace('_', ' ').replace('-', ' ')
+
 # ================= CATEGORY APIs =================
 
 @api_view(['GET'])
@@ -257,6 +261,15 @@ def get_products(request):
                 category_obj = Category.objects.filter(
                     Q(name__iexact=category) | Q(display_name__iexact=category)
                 ).first()
+                if not category_obj:
+                    normalized_category = _normalize_category_value(category)
+                    for candidate in Category.objects.filter(is_active=True):
+                        if (
+                            _normalize_category_value(candidate.name) == normalized_category or
+                            _normalize_category_value(candidate.display_name) == normalized_category
+                        ):
+                            category_obj = candidate
+                            break
                 if category_obj:
                     products = products.filter(category_id=category_obj.id)
                 else:
