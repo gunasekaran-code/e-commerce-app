@@ -5,10 +5,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from django.db import IntegrityError, transaction
+# from django.db import IntegrityError, transaction
+from django.db import (IntegrityError, transaction)
 from django.db.models import Q
 from django.db.utils import OperationalError, ProgrammingError
-from .models import Category, Cart, CartItem, Order, OrderItem, Product, User, Wishlist, WishlistItem
+from .models import Category, Cart, CartItem, Order, OrderItem, Product, User, Wishlist, WishlistItem, Address
+from django.contrib.auth.hashers import make_password, check_password
 from .serializers import (
     CategorySerializer,
     OrderSerializer,
@@ -16,8 +18,9 @@ from .serializers import (
     UserSerializer,
     WishlistItemSerializer,
     WishlistSerializer,
+    AddressSerializer,
 )
-from django.contrib.auth.hashers import make_password, check_password
+
 
 logger = logging.getLogger(__name__)
 
@@ -684,13 +687,175 @@ def remove_from_cart(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# @api_view(['POST'])
+# def checkout_cart(request):
+#     user_id = request.data.get('user_id')
+#     address_id = request.data.get('address_id')
+#     selected_product_ids = request.data.get('product_ids') or []
+#     shipping_address = request.data.get('shipping_address') or {}
+#     payment_method = (request.data.get('payment_method') or '').strip().lower()
+
+#     if not user_id:
+#         return Response(
+#             {'error': 'user_id is required'},
+#             status=status.HTTP_400_BAD_REQUEST,
+#         )
+
+#     if not isinstance(selected_product_ids, list) or not selected_product_ids:
+#         return Response(
+#             {'error': 'At least one selected product is required'},
+#             status=status.HTTP_400_BAD_REQUEST,
+#         )
+
+#     required_shipping_fields = {
+#         'first_name': 'First name',
+#         'last_name': 'Last name',
+#         'address_line_1': 'Address line 1',
+#         'city': 'City',
+#         'state': 'State',
+#         'postal_code': 'ZIP / Postal code',
+#         'country': 'Country',
+#     }
+
+#     missing_fields = [
+#         label
+#         for field, label in required_shipping_fields.items()
+#         if not str(shipping_address.get(field, '')).strip()
+#     ]
+
+#     if missing_fields:
+#         return Response(
+#             {'error': f'Missing required shipping fields: {", ".join(missing_fields)}'},
+#             status=status.HTTP_400_BAD_REQUEST,
+#         )
+
+#     if payment_method not in {Order.PAYMENT_UPI, Order.PAYMENT_COD}:
+#         return Response(
+#             {'error': 'Valid payment method is required'},
+#             status=status.HTTP_400_BAD_REQUEST,
+#         )
+
+#     try:
+#         with transaction.atomic():
+#             user = User.objects.get(id=user_id)
+#             cart = Cart.objects.get(user=user)
+#             cart_items = list(
+#                 CartItem.objects.select_related('product').select_for_update().filter(
+#                     cart=cart,
+#                     product_id__in=selected_product_ids,
+#                 )
+#             )
+
+#             if not cart_items:
+#                 return Response(
+#                     {'error': 'No selected products found in cart'},
+#                     status=status.HTTP_400_BAD_REQUEST,
+#                 )
+
+#             product_ids = [item.product_id for item in cart_items]
+#             locked_products = Product.objects.select_for_update().filter(id__in=product_ids)
+#             products_by_id = {product.id: product for product in locked_products}
+
+#             stock_errors = []
+#             total_amount = 0
+#             total_items = 0
+
+#             for item in cart_items:
+#                 product = products_by_id.get(item.product_id)
+
+#                 if not product or product.del_flag:
+#                     stock_errors.append({
+#                         'product_id': item.product_id,
+#                         'product_name': item.product.name,
+#                         'error': 'Product is no longer available',
+#                     })
+#                     continue
+
+#                 if product.stock < item.quantity:
+#                     stock_errors.append({
+#                         'product_id': product.id,
+#                         'product_name': product.name,
+#                         'requested_quantity': item.quantity,
+#                         'available_stock': product.stock,
+#                         'error': f'Only {product.stock} item(s) available',
+#                     })
+#                     continue
+
+#                 total_items += item.quantity
+#                 total_amount += product.price * item.quantity
+
+#             if stock_errors:
+#                 return Response(
+#                     {
+#                         'error': 'Some items are out of stock',
+#                         'items': stock_errors,
+#                     },
+#                     status=status.HTTP_400_BAD_REQUEST,
+#                 )
+
+#             order = Order.objects.create(
+#                 user=user,
+#                 total_amount=total_amount,
+#                 total_items=total_items,
+#                 status=Order.STATUS_PLACED,
+#                 first_name=str(shipping_address.get('first_name', '')).strip(),
+#                 last_name=str(shipping_address.get('last_name', '')).strip(),
+#                 address_line_1=str(shipping_address.get('address_line_1', '')).strip(),
+#                 address_line_2=str(shipping_address.get('address_line_2', '')).strip(),
+#                 city=str(shipping_address.get('city', '')).strip(),
+#                 state=str(shipping_address.get('state', '')).strip(),
+#                 postal_code=str(shipping_address.get('postal_code', '')).strip(),
+#                 country=str(shipping_address.get('country', '')).strip(),
+#                 payment_method=payment_method,
+#             )
+
+#             for item in cart_items:
+#                 product = products_by_id[item.product_id]
+
+#                 OrderItem.objects.create(
+#                     order=order,
+#                     product=product,
+#                     product_name=product.name,
+#                     product_price=product.price,
+#                     quantity=item.quantity,
+#                 )
+
+#                 product.stock -= item.quantity
+#                 product.save(update_fields=['stock', 'updated_at'])
+
+#             CartItem.objects.filter(
+#                 cart=cart,
+#                 product_id__in=[item.product_id for item in cart_items],
+#             ).delete()
+
+#         serializer = OrderSerializer(order, context={'request': request})
+#         return Response(
+#             {
+#                 'message': 'Order placed successfully',
+#                 'order': serializer.data,
+#             },
+#             status=status.HTTP_201_CREATED,
+#         )
+
+#     except User.DoesNotExist:
+#         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+#     except Cart.DoesNotExist:
+#         return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
+#     except Exception as e:
+#         logger.error(f"Error during checkout: {str(e)}")
+#         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#Gemini Ai generated checkout_cart with enhanced validation, error handling, and transactional integrity. It ensures that stock levels are checked and updated atomically, and provides detailed error responses for various failure scenarios.
 @api_view(['POST'])
 def checkout_cart(request):
     user_id = request.data.get('user_id')
+    address_id = request.data.get('address_id')
     selected_product_ids = request.data.get('product_ids') or []
     shipping_address = request.data.get('shipping_address') or {}
     payment_method = (request.data.get('payment_method') or '').strip().lower()
 
+    # 1. Basic Payload Validation
     if not user_id:
         return Response(
             {'error': 'user_id is required'},
@@ -703,38 +868,77 @@ def checkout_cart(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    required_shipping_fields = {
-        'first_name': 'First name',
-        'last_name': 'Last name',
-        'address_line_1': 'Address line 1',
-        'city': 'City',
-        'state': 'State',
-        'postal_code': 'ZIP / Postal code',
-        'country': 'Country',
-    }
-
-    missing_fields = [
-        label
-        for field, label in required_shipping_fields.items()
-        if not str(shipping_address.get(field, '')).strip()
-    ]
-
-    if missing_fields:
-        return Response(
-            {'error': f'Missing required shipping fields: {", ".join(missing_fields)}'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    if payment_method not in {Order.PAYMENT_UPI, Order.PAYMENT_COD}:
+    if payment_method not in {Order.PAYMENT_UPI.lower(), Order.PAYMENT_COD.lower()}:
         return Response(
             {'error': 'Valid payment method is required'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # 2. Address Resolution & Validation (Done BEFORE the transaction to fail fast)
+    address_instance = None
+    order_address_data = {}
+
+    if address_id:
+        try:
+            # Fetch the saved address and ensure it belongs to this user
+            address_instance = Address.objects.get(id=address_id, user_id=user_id)
+            order_address_data = {
+                'first_name': address_instance.first_name,
+                'last_name': address_instance.last_name,
+                'address_line_1': address_instance.address_line_1,
+                'address_line_2': address_instance.address_line_2,
+                'city': address_instance.city,
+                'state': address_instance.state,
+                'postal_code': address_instance.postal_code,
+                'country': address_instance.country,
+            }
+        except Address.DoesNotExist:
+            return Response(
+                {'error': 'Selected address not found'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+    else:
+        # Validate manual shipping address if no address_id is provided
+        required_shipping_fields = {
+            'first_name': 'First name',
+            'last_name': 'Last name',
+            'address_line_1': 'Address line 1',
+            'city': 'City',
+            'state': 'State',
+            'postal_code': 'ZIP / Postal code',
+            'country': 'Country',
+        }
+
+        missing_fields = [
+            label
+            for field, label in required_shipping_fields.items()
+            if not str(shipping_address.get(field, '')).strip()
+        ]
+
+        if missing_fields:
+            return Response(
+                {'error': f'Missing required shipping fields: {", ".join(missing_fields)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order_address_data = {
+            'first_name': str(shipping_address.get('first_name', '')).strip(),
+            'last_name': str(shipping_address.get('last_name', '')).strip(),
+            'address_line_1': str(shipping_address.get('address_line_1', '')).strip(),
+            'address_line_2': str(shipping_address.get('address_line_2', '')).strip(),
+            'city': str(shipping_address.get('city', '')).strip(),
+            'state': str(shipping_address.get('state', '')).strip(),
+            'postal_code': str(shipping_address.get('postal_code', '')).strip(),
+            'country': str(shipping_address.get('country', '')).strip(),
+        }
+
+    # 3. Transaction & Core Checkout Logic
     try:
         with transaction.atomic():
             user = User.objects.get(id=user_id)
             cart = Cart.objects.get(user=user)
+            
+            # Lock the cart items
             cart_items = list(
                 CartItem.objects.select_related('product').select_for_update().filter(
                     cart=cart,
@@ -748,6 +952,7 @@ def checkout_cart(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Lock the products to check stock
             product_ids = [item.product_id for item in cart_items]
             locked_products = Product.objects.select_for_update().filter(id__in=product_ids)
             products_by_id = {product.id: product for product in locked_products}
@@ -756,10 +961,11 @@ def checkout_cart(request):
             total_amount = 0
             total_items = 0
 
+            # Verify stock limits
             for item in cart_items:
                 product = products_by_id.get(item.product_id)
 
-                if not product or product.del_flag:
+                if not product or getattr(product, 'del_flag', False):
                     stock_errors.append({
                         'product_id': item.product_id,
                         'product_name': item.product.name,
@@ -789,22 +995,24 @@ def checkout_cart(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            order = Order.objects.create(
-                user=user,
-                total_amount=total_amount,
-                total_items=total_items,
-                status=Order.STATUS_PLACED,
-                first_name=str(shipping_address.get('first_name', '')).strip(),
-                last_name=str(shipping_address.get('last_name', '')).strip(),
-                address_line_1=str(shipping_address.get('address_line_1', '')).strip(),
-                address_line_2=str(shipping_address.get('address_line_2', '')).strip(),
-                city=str(shipping_address.get('city', '')).strip(),
-                state=str(shipping_address.get('state', '')).strip(),
-                postal_code=str(shipping_address.get('postal_code', '')).strip(),
-                country=str(shipping_address.get('country', '')).strip(),
-                payment_method=payment_method,
-            )
+            # Create the Order
+            # We unpack the validated address dictionary safely here
+            order_kwargs = {
+                'user': user,
+                'total_amount': total_amount,
+                'total_items': total_items,
+                'status': Order.STATUS_PLACED,
+                'payment_method': payment_method,
+                **order_address_data  # Unpacks the address details we prepared earlier
+            }
 
+            # If an address was pulled from the DB, link it to the ForeignKey (if your model uses it)
+            if address_instance:
+                order_kwargs['address'] = address_instance
+
+            order = Order.objects.create(**order_kwargs)
+
+            # Create OrderItems and reduce stock
             for item in cart_items:
                 product = products_by_id[item.product_id]
 
@@ -819,11 +1027,13 @@ def checkout_cart(request):
                 product.stock -= item.quantity
                 product.save(update_fields=['stock', 'updated_at'])
 
+            # Clear purchased items from cart
             CartItem.objects.filter(
                 cart=cart,
                 product_id__in=[item.product_id for item in cart_items],
             ).delete()
 
+        # Generate response outside the atomic block
         serializer = OrderSerializer(order, context={'request': request})
         return Response(
             {
@@ -839,7 +1049,7 @@ def checkout_cart(request):
         return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error(f"Error during checkout: {str(e)}")
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': 'An internal error occurred during checkout'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -1069,4 +1279,71 @@ def is_product_in_wishlist(request, user_id, product_id):
         return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error(f"Error checking wishlist: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+@api_view(['GET'])
+def get_user_addresses(request):
+    """Get all addresses for the authenticated user"""
+    user_id = request.query_params.get('user_id')
+    
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        addresses = Address.objects.filter(user_id=user_id)
+        serializer = AddressSerializer(addresses, many=True)
+        return Response({'addresses': serializer.data}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def create_address(request):
+    """Create a new address"""
+    user_id = request.data.get('user_id')
+    
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        data = request.data.copy()
+        data['user'] = user_id
+        
+        serializer = AddressSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'address': serializer.data}, status=status.HTTP_201_CREATED)
+        return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+def update_address(request, address_id):
+    """Update an existing address"""
+    try:
+        address = Address.objects.get(id=address_id, user_id=request.data.get('user_id'))
+        serializer = AddressSerializer(address, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'address': serializer.data}, status=status.HTTP_200_OK)
+        return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    except Address.DoesNotExist:
+        return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['DELETE'])
+def delete_address(request, address_id):
+    """Delete an address"""
+    try:
+        user_id = request.query_params.get('user_id')
+        address = Address.objects.get(id=address_id, user_id=user_id)
+        address.delete()
+        return Response({'success': True}, status=status.HTTP_200_OK)
+    except Address.DoesNotExist:
+        return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -564,45 +564,88 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> checkoutCart({
-    required int userId,
-    required List<int> productIds,
-    required Map<String, dynamic> shippingAddress,
-    required String paymentMethod,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/cart/checkout/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "user_id": userId,
-          "product_ids": productIds,
-          "shipping_address": shippingAddress,
-          "payment_method": paymentMethod,
-        }),
-      );
+  required int userId,
+  required List<int> productIds,
+  int? addressId,
+  Map<String, dynamic>? shippingAddress,
+  required String paymentMethod,
+}) async {
+  try {
+    final body = {
+      'user_id': userId,
+      'product_ids': productIds,
+      'payment_method': paymentMethod,
+    };
 
-      if (response.body.isEmpty) {
-        return {
-          'success': response.statusCode == 201,
-          'error': 'Empty response from server',
-        };
-      }
-
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 201) {
-        return {'success': true, 'data': data};
-      }
-
-      return {
-        'success': false,
-        'error': data['error'] ?? 'Checkout failed',
-        'data': data,
-      };
-    } catch (e) {
-      _logError('Error during checkout: $e');
-      return {'success': false, 'error': 'Network error: $e'};
+    if (addressId != null) {
+      body['address_id'] = addressId;
+    } else if (shippingAddress != null) {
+      body['shipping_address'] = shippingAddress;
     }
+
+    _log('Sending Checkout Body: ${jsonEncode(body)}');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/cart/checkout/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+
+    final decodedResponse = jsonDecode(response.body);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      _log('Checkout Successful');
+      return {
+        'success': true, 
+        'data': decodedResponse
+      };
+    } else {
+      _logError('Checkout Failed: ${response.body}');
+      return {
+        'success': false, 
+        'error': decodedResponse['error'] ?? 'Failed to checkout'
+      };
+    }
+  } catch (e) {
+    _logError('Checkout Exception: $e');
+    return {'success': false, 'error': e.toString()};
   }
+}
+
+  // static Future<Map<String, dynamic>> checkoutCart({
+  //   required int userId,
+  //   required List<int> productIds,
+  //   int? addressId,
+  //   Map<String, dynamic>? shippingAddress,
+  //   required String paymentMethod,
+  // }) async {
+  //   try {
+  //     final body = {
+  //       'user_id': userId,
+  //       'product_ids': productIds,
+  //       'payment_method': paymentMethod,
+  //     };
+
+  //     if (addressId != null) {
+  //       body['address_id'] = addressId;
+  //     } else if (shippingAddress != null) {
+  //       body['shipping_address'] = shippingAddress;
+  //     }
+
+  //     final response = await http.post(
+  //       Uri.parse('$baseUrl/cart/checkout/'),
+  //       headers: {'Content-Type': 'application/json'},
+  //       body: jsonEncode(body),
+  //     );
+
+  //     if (response.statusCode == 200 || response.statusCode == 201) {
+  //       return jsonDecode(response.body);
+  //     }
+  //     return {'error': 'Failed to checkout'};
+  //   } catch (e) {
+  //     return {'error': e.toString()};
+  //   }
+  // }
 
   // ============= WISHLIST APIs =============
 
@@ -792,4 +835,105 @@ class ApiService {
       return {'success': false, 'error': 'Network error: $e'};
     }
   }
+
+  static Future<Map<String, dynamic>> getUserAddresses(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/addresses/?user_id=$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'error': 'Failed to fetch addresses'};
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> createAddress({
+    required int userId,
+    required Map<String, dynamic> addressData,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/addresses/create/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'user_id': userId, ...addressData}),
+      );
+
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body);
+      }
+      return {'error': 'Failed to create address'};
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteAddress({
+    required int addressId,
+    required int userId,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/addresses/$addressId/delete/?user_id=$userId'),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'error': 'Failed to delete address'};
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> createRazorpayOrder({
+  required int userId,
+  required double amount,
+}) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/create-razorpay-order'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'user_id': userId,
+        'amount': amount,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    return {'success': false, 'error': 'Failed to create order'};
+  } catch (e) {
+    return {'success': false, 'error': e.toString()};
+  }
+}
+
+static Future<Map<String, dynamic>> verifyPayment({
+  required String razorpayOrderId,
+  required String razorpayPaymentId,
+  required String razorpaySignature,
+}) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/verify-payment'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'razorpay_order_id': razorpayOrderId,
+        'razorpay_payment_id': razorpayPaymentId,
+        'razorpay_signature': razorpaySignature,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    return {'success': false, 'error': 'Payment verification failed'};
+  } catch (e) {
+    return {'success': false, 'error': e.toString()};
+  }
+}
 }

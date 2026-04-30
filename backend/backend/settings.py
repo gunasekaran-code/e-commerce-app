@@ -24,6 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-lmr=u2r1qyxfa&o86=r3wu2k9nyskt$kzaei$$%v9b9nu6@biu'
+    
+#Razorpay Test API Key: rzp_test_Sjf5R4l0R8Ah9G
+# Razorpay Test Secret: 8YHMNBe8BoDwJI8KoQLCZyPG
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -145,6 +148,8 @@ DATABASES = {
         }
     }
 }
+
+
 
 # postgreSQL - Render.com
 

@@ -46,4 +46,11 @@ urlpatterns = [
 
     # path('api/auth/google/', views.google_auth, name='google-auth'),
     path('auth/google/', views.google_auth, name='google-auth'),
+
+
+    # Address routes
+    path('addresses/', views.get_user_addresses, name='get_addresses'),
+    path('addresses/create/', views.create_address, name='create_address'),
+    path('addresses/<int:address_id>/update/', views.update_address, name='update_address'),
+    path('addresses/<int:address_id>/delete/', views.delete_address, name='delete_address'),
 ]

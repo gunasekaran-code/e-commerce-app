@@ -8,6 +8,7 @@ from .models import (
     User,
     Wishlist,
     WishlistItem,
+    Address,
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -105,3 +106,11 @@ class WishlistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wishlist
         fields = ['id', 'user', 'items', 'created_at', 'updated_at']
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = ['id', 'user', 'address_type', 'first_name', 'last_name', 
+                  'address_line_1', 'address_line_2', 'city', 'state', 
+                  'postal_code', 'country', 'is_default', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']

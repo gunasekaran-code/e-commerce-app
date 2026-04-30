@@ -93,6 +93,45 @@ class CartItem(models.Model):
     class Meta:
         unique_together = ('cart', 'product')
 
+# models.py
+class Address(models.Model):
+    ADDRESS_HOME = 'home'
+    ADDRESS_OFFICE = 'office'
+    ADDRESS_OTHER = 'other'
+    
+    ADDRESS_TYPE_CHOICES = [
+        (ADDRESS_HOME, 'Home'),
+        (ADDRESS_OFFICE, 'Office'),
+        (ADDRESS_OTHER, 'Other'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    address_type = models.CharField(max_length=20, choices=ADDRESS_TYPE_CHOICES, default=ADDRESS_HOME)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    address_line_1 = models.CharField(max_length=255)
+    address_line_2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-is_default', '-created_at']
+        verbose_name_plural = 'Addresses'
+    
+    def __str__(self):
+        return f"{self.get_address_type_display()} - {self.first_name} {self.last_name}"
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one default address per user
+        if self.is_default:
+            Address.objects.filter(user=self.user, is_default=True).update(is_default=False)
+        super().save(*args, **kwargs)
+
 
 class Order(models.Model):
     STATUS_PLACED = 'placed'
@@ -109,7 +148,7 @@ class Order(models.Model):
         (PAYMENT_UPI, 'UPI'),
         (PAYMENT_COD, 'Cash on Delivery'),
     ]
-
+    address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_items = models.PositiveIntegerField(default=0)
