@@ -5,11 +5,18 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.db.utils import OperationalError, ProgrammingError
-from .models import User, Product, Cart, CartItem, Wishlist, WishlistItem, Category
-from .serializers import UserSerializer, ProductSerializer, WishlistSerializer, WishlistItemSerializer, CategorySerializer
+from .models import Category, Cart, CartItem, Order, OrderItem, Product, User, Wishlist, WishlistItem
+from .serializers import (
+    CategorySerializer,
+    OrderSerializer,
+    ProductSerializer,
+    UserSerializer,
+    WishlistItemSerializer,
+    WishlistSerializer,
+)
 from django.contrib.auth.hashers import make_password, check_password
 
 logger = logging.getLogger(__name__)
@@ -27,6 +34,24 @@ def _schema_error_response(resource_name):
 
 def _normalize_category_value(value):
     return value.strip().lower().replace('_', ' ').replace('-', ' ')
+
+
+def _parse_positive_int(value, field_name):
+    try:
+        parsed_value = int(value)
+    except (TypeError, ValueError):
+        return None, Response(
+            {'error': f'{field_name} must be a valid integer'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if parsed_value < 1:
+        return None, Response(
+            {'error': f'{field_name} must be at least 1'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return parsed_value, None
 
 # ================= CATEGORY APIs =================
 
@@ -473,19 +498,24 @@ def add_to_cart(request):
     
     user_id = request.data.get('user_id')
     product_id = request.data.get('product_id')
-    quantity = request.data.get('quantity', 1)
+    quantity, error_response = _parse_positive_int(request.data.get('quantity', 1), 'quantity')
+
+    if error_response:
+        return error_response
     
     logger.info(f"user_id: {user_id}, product_id: {product_id}, quantity: {quantity}")
     
     try:
         user = User.objects.get(id=user_id)
-        product = Product.objects.get(id=product_id)
+        product = Product.objects.get(id=product_id, del_flag=False)
         logger.info(f"Found user: {user.id}, product: {product.id}")
+
+        if product.stock < 1:
+            return Response({"error": "Product is out of stock"}, status=status.HTTP_400_BAD_REQUEST)
         
         cart, created = Cart.objects.get_or_create(user=user)
         logger.info(f"Cart: {cart.id}, created: {created}")
         
-        # FIXED: Removed products_sku_id - just use product ForeignKey
         item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
@@ -493,14 +523,30 @@ def add_to_cart(request):
         )
         
         if not created:
-            item.quantity += quantity
+            new_quantity = item.quantity + quantity
+            if new_quantity > product.stock:
+                return Response(
+                    {"error": f"Only {product.stock} item(s) available in stock"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            item.quantity = new_quantity
             item.save()
             logger.info(f"Updated item quantity to: {item.quantity}")
         else:
+            if quantity > product.stock:
+                item.delete()
+                return Response(
+                    {"error": f"Only {product.stock} item(s) available in stock"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             logger.info("New cart item created")
         
         logger.info("Product added to cart successfully")
-        return Response({"message": "Product added to cart successfully"})
+        return Response({
+            "message": "Product added to cart successfully",
+            "quantity": item.quantity,
+            "available_stock": product.stock,
+        })
     
     except User.DoesNotExist:
         logger.error(f"User not found: {user_id}")
@@ -540,6 +586,9 @@ def get_cart(request, user_id):
             "price": item.product.price,
             "quantity": item.quantity,
             "image": image_url,
+            "available_stock": item.product.stock,
+            "is_in_stock": item.product.is_in_stock,
+            "exceeds_stock": item.quantity > item.product.stock,
         })
 
     return Response(data)
@@ -558,23 +607,34 @@ def update_cart_item(request):
                 {'error': 'user_id, product_id, and quantity are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        if quantity < 1:
-            return Response(
-                {'error': 'Quantity must be at least 1'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+        quantity, error_response = _parse_positive_int(quantity, 'quantity')
+        if error_response:
+            return error_response
         
         user = User.objects.get(id=user_id)
         cart = Cart.objects.get(user=user)
-        item = CartItem.objects.get(cart=cart, product_id=product_id)
+        item = CartItem.objects.select_related('product').get(cart=cart, product_id=product_id)
+
+        if item.product.del_flag:
+            return Response(
+                {'error': 'This product is no longer available'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if quantity > item.product.stock:
+            return Response(
+                {'error': f'Only {item.product.stock} item(s) available in stock'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         
         item.quantity = quantity
         item.save()
         
         return Response({
             'message': 'Cart item updated successfully',
-            'quantity': item.quantity
+            'quantity': item.quantity,
+            'available_stock': item.product.stock,
         }, status=status.HTTP_200_OK)
         
     except User.DoesNotExist:
@@ -621,6 +681,175 @@ def remove_from_cart(request):
         return Response({'error': 'Product not in cart'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error(f"Error removing from cart: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def checkout_cart(request):
+    user_id = request.data.get('user_id')
+    selected_product_ids = request.data.get('product_ids') or []
+    shipping_address = request.data.get('shipping_address') or {}
+    payment_method = (request.data.get('payment_method') or '').strip().lower()
+
+    if not user_id:
+        return Response(
+            {'error': 'user_id is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not isinstance(selected_product_ids, list) or not selected_product_ids:
+        return Response(
+            {'error': 'At least one selected product is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    required_shipping_fields = {
+        'first_name': 'First name',
+        'last_name': 'Last name',
+        'address_line_1': 'Address line 1',
+        'city': 'City',
+        'state': 'State',
+        'postal_code': 'ZIP / Postal code',
+        'country': 'Country',
+    }
+
+    missing_fields = [
+        label
+        for field, label in required_shipping_fields.items()
+        if not str(shipping_address.get(field, '')).strip()
+    ]
+
+    if missing_fields:
+        return Response(
+            {'error': f'Missing required shipping fields: {", ".join(missing_fields)}'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if payment_method not in {Order.PAYMENT_UPI, Order.PAYMENT_COD}:
+        return Response(
+            {'error': 'Valid payment method is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        with transaction.atomic():
+            user = User.objects.get(id=user_id)
+            cart = Cart.objects.get(user=user)
+            cart_items = list(
+                CartItem.objects.select_related('product').select_for_update().filter(
+                    cart=cart,
+                    product_id__in=selected_product_ids,
+                )
+            )
+
+            if not cart_items:
+                return Response(
+                    {'error': 'No selected products found in cart'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            product_ids = [item.product_id for item in cart_items]
+            locked_products = Product.objects.select_for_update().filter(id__in=product_ids)
+            products_by_id = {product.id: product for product in locked_products}
+
+            stock_errors = []
+            total_amount = 0
+            total_items = 0
+
+            for item in cart_items:
+                product = products_by_id.get(item.product_id)
+
+                if not product or product.del_flag:
+                    stock_errors.append({
+                        'product_id': item.product_id,
+                        'product_name': item.product.name,
+                        'error': 'Product is no longer available',
+                    })
+                    continue
+
+                if product.stock < item.quantity:
+                    stock_errors.append({
+                        'product_id': product.id,
+                        'product_name': product.name,
+                        'requested_quantity': item.quantity,
+                        'available_stock': product.stock,
+                        'error': f'Only {product.stock} item(s) available',
+                    })
+                    continue
+
+                total_items += item.quantity
+                total_amount += product.price * item.quantity
+
+            if stock_errors:
+                return Response(
+                    {
+                        'error': 'Some items are out of stock',
+                        'items': stock_errors,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            order = Order.objects.create(
+                user=user,
+                total_amount=total_amount,
+                total_items=total_items,
+                status=Order.STATUS_PLACED,
+                first_name=str(shipping_address.get('first_name', '')).strip(),
+                last_name=str(shipping_address.get('last_name', '')).strip(),
+                address_line_1=str(shipping_address.get('address_line_1', '')).strip(),
+                address_line_2=str(shipping_address.get('address_line_2', '')).strip(),
+                city=str(shipping_address.get('city', '')).strip(),
+                state=str(shipping_address.get('state', '')).strip(),
+                postal_code=str(shipping_address.get('postal_code', '')).strip(),
+                country=str(shipping_address.get('country', '')).strip(),
+                payment_method=payment_method,
+            )
+
+            for item in cart_items:
+                product = products_by_id[item.product_id]
+
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    product_name=product.name,
+                    product_price=product.price,
+                    quantity=item.quantity,
+                )
+
+                product.stock -= item.quantity
+                product.save(update_fields=['stock', 'updated_at'])
+
+            CartItem.objects.filter(
+                cart=cart,
+                product_id__in=[item.product_id for item in cart_items],
+            ).delete()
+
+        serializer = OrderSerializer(order, context={'request': request})
+        return Response(
+            {
+                'message': 'Order placed successfully',
+                'order': serializer.data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Cart.DoesNotExist:
+        return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error during checkout: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def get_orders(request, user_id):
+    try:
+        orders = Order.objects.filter(user_id=user_id).prefetch_related('items').all()
+        serializer = OrderSerializer(orders, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Error fetching orders: {str(e)}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

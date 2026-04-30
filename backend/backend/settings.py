@@ -31,15 +31,6 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 
-# AWS S3 Settings (Store these securely in environment variables!)
-AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME')
-AWS_S3_REGION_NAME = 'us-east-1' # e.g., us-east-1
-
-# Tell Django to use S3 for media files
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -53,7 +44,6 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework',  # ADD THIS
     'corsheaders',     # ADD THIS
-    'storages',
     'api',             # Your app
 ]
 
@@ -142,33 +132,33 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 #phpMySQL
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': os.getenv('DB_NAME', 'ecom_db'),
-#         'USER': os.getenv('DB_USERNAME', 'root'),
-#         'PASSWORD': os.getenv('DB_PASSWORD', 'root'),
-#         'HOST': 'localhost',
-#         'PORT': '8889',
-#         'OPTIONS': {
-#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-#         }
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.getenv('DB_NAME', 'ecom_db'),
+        'USER': os.getenv('DB_USERNAME', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'root'),
+        'HOST': 'localhost',
+        'PORT': '8889',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
+    }
+}
 
 # postgreSQL - Render.com
 
-DATABASES = {
-    'default': dj_database_url.config(
+# DATABASES = {
+#     'default': dj_database_url.config(
         
-        default='sqlite:///db.sqlite3',
-        conn_max_age=600,
-        conn_health_checks=True,
+#         default='sqlite:///db.sqlite3',
+#         conn_max_age=600,
+#         conn_health_checks=True,
 
-        # default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
-        # conn_max_age=600
-    )
-}
+#         # default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
+#         # conn_max_age=600
+#     )
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

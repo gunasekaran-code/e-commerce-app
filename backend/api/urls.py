@@ -35,6 +35,8 @@ urlpatterns = [
     path('cart/<int:user_id>/', views.get_cart, name='get_cart'),
     path('cart/update/', views.update_cart_item, name='update_cart_item'),
     path('cart/remove/', views.remove_from_cart, name='remove_from_cart'),
+    path('cart/checkout/', views.checkout_cart, name='checkout_cart'),
+    path('orders/<int:user_id>/', views.get_orders, name='get_orders'),
 
     # Wishlist routes
     path('wishlist/<int:user_id>/', views.get_wishlist, name='get_wishlist'),

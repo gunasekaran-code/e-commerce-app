@@ -5,24 +5,24 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 class ApiService {
-
-  static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render URL - Use this for deployed backend
-  // static const String baseUrl = 'http://127.0.0.1:8000/api';     // localhost chrome (Flutter web)
+  // static const String baseUrl = 'https://e-commerce-app-spee.onrender.com/api';  // Render for deployed backend
+  static const String baseUrl =
+      'http://127.0.0.1:8000/api'; // localhost chrome (Flutter web)
 
   // static const String baseUrl = 'http://10.0.2.2:8000/api';        // mobile emulator (Android Studio)
-  // static const String baseUrl = 'http://192.168.1.11/api';         // wifi network 
+  // static const String baseUrl = 'http://192.168.1.11/api';         // wifi network
   // static const String baseUrl = 'http://192.168.1.11:8000/api';    // Added :8000
 
   // Enable debug mode to see detailed logs
   static const bool debugMode = true;
-  
+
   // Helper method to log debug info
   static void _log(String message) {
     if (debugMode) {
       print('🔵 [API] $message');
     }
   }
-  
+
   // Helper method to log errors
   static void _logError(String message) {
     if (debugMode) {
@@ -54,10 +54,10 @@ class ApiService {
     try {
       _log('Attempting login to: $baseUrl/login/');
       _log('Email: $email');
-      
+
       final requestBody = jsonEncode({'email': email, 'password': password});
       _log('Request body: $requestBody');
-      
+
       final response = await http
           .post(
             Uri.parse('$baseUrl/login/'),
@@ -75,7 +75,8 @@ class ApiService {
         _logError('Empty response body received');
         return {
           'success': false,
-          'error': 'Server returned empty response. Status: ${response.statusCode}',
+          'error':
+              'Server returned empty response. Status: ${response.statusCode}',
         };
       }
 
@@ -89,7 +90,10 @@ class ApiService {
           _logError('Login failed with status: ${response.statusCode}');
           return {
             'success': false,
-            'error': data['error'] ?? data['detail'] ?? 'Login failed. Status: ${response.statusCode}',
+            'error':
+                data['error'] ??
+                data['detail'] ??
+                'Login failed. Status: ${response.statusCode}',
           };
         }
       } catch (jsonError) {
@@ -97,14 +101,16 @@ class ApiService {
         _logError('Raw response: ${response.body}');
         return {
           'success': false,
-          'error': 'Server error. Status: ${response.statusCode}\n${response.body}',
+          'error':
+              'Server error. Status: ${response.statusCode}\n${response.body}',
         };
       }
     } on TimeoutException catch (e) {
       _logError('Request timeout: $e');
       return {
         'success': false,
-        'error': 'Request timed out. The server might be starting up. Please try again.',
+        'error':
+            'Request timed out. The server might be starting up. Please try again.',
       };
     } catch (e) {
       _logError('Network error: $e');
@@ -133,14 +139,14 @@ class ApiService {
   }) async {
     try {
       _log('Attempting registration to: $baseUrl/users/create/');
-      
+
       final requestBody = jsonEncode({
         'full_name': fullName,
         'email': email,
         'password': password,
       });
       _log('Request body: $requestBody');
-      
+
       final response = await http
           .post(
             Uri.parse('$baseUrl/users/create/'),
@@ -156,7 +162,8 @@ class ApiService {
         _logError('Empty response body received');
         return {
           'success': false,
-          'error': 'Server returned empty response. Status: ${response.statusCode}',
+          'error':
+              'Server returned empty response. Status: ${response.statusCode}',
         };
       }
 
@@ -168,17 +175,11 @@ class ApiService {
           return {'success': true, 'data': data};
         } else {
           _logError('Registration failed with status: ${response.statusCode}');
-          return {
-            'success': false,
-            'error': data,
-          };
+          return {'success': false, 'error': data};
         }
       } catch (jsonError) {
         _logError('JSON parsing error: $jsonError');
-        return {
-          'success': false,
-          'error': 'Server error: ${response.body}',
-        };
+        return {'success': false, 'error': 'Server error: ${response.body}'};
       }
     } on TimeoutException catch (e) {
       _logError('Request timeout: $e');
@@ -188,10 +189,7 @@ class ApiService {
       };
     } catch (e) {
       _logError('Network error: $e');
-      return {
-        'success': false,
-        'error': 'Network error: $e',
-      };
+      return {'success': false, 'error': 'Network error: $e'};
     }
   }
 
@@ -219,11 +217,13 @@ class ApiService {
       }
       if (imageFile != null) {
         final bytes = await imageFile.readAsBytes();
-        request.files.add(http.MultipartFile.fromBytes(
-          'image',
-          bytes,
-          filename: imageFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            bytes,
+            filename: imageFile.name,
+          ),
+        );
       }
 
       final response = await request.send();
@@ -236,7 +236,10 @@ class ApiService {
         final data = jsonDecode(responseData);
         return {'success': true, 'data': data};
       }
-      return {'success': false, 'error': 'HTTP ${response.statusCode}: $responseData'};
+      return {
+        'success': false,
+        'error': 'HTTP ${response.statusCode}: $responseData',
+      };
     } catch (e) {
       _logError('Error updating user: $e');
       return {'success': false, 'error': 'Network error: $e'};
@@ -255,9 +258,9 @@ class ApiService {
 
       _log('Fetching products from: $uri');
       final response = await http.get(uri);
-      
+
       _log('Products response status: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
         _log('Retrieved ${data.length} products');
@@ -290,9 +293,7 @@ class ApiService {
     return [];
   }
 
-  static Future<Map<String, dynamic>?> getUser({
-    required int id,
-  }) async {
+  static Future<Map<String, dynamic>?> getUser({required int id}) async {
     try {
       _log('Fetching user profile for ID: $id');
       final response = await http.get(Uri.parse('$baseUrl/users/$id/'));
@@ -314,7 +315,7 @@ class ApiService {
     try {
       _log('Fetching product detail for ID: $id');
       final response = await http.get(Uri.parse('$baseUrl/products/$id/'));
-      
+
       if (response.statusCode == 200) {
         return Product.fromJson(jsonDecode(response.body));
       } else {
@@ -362,7 +363,7 @@ class ApiService {
   }) async {
     try {
       _log('Creating product: $name');
-      
+
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/admin/products/create/'),
@@ -382,20 +383,22 @@ class ApiService {
       // Add image file if selected
       if (imageFile != null) {
         final bytes = await imageFile.readAsBytes();
-        request.files.add(http.MultipartFile.fromBytes(
-          'image',
-          bytes,
-          filename: imageFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            bytes,
+            filename: imageFile.name,
+          ),
+        );
         _log('Image attached: ${imageFile.name}');
       }
 
       final response = await request.send();
       final responseData = await response.stream.bytesToString();
-      
+
       _log('Create product response: ${response.statusCode}');
       _log('Response data: $responseData');
-      
+
       if (response.statusCode == 201) {
         try {
           final data = jsonDecode(responseData);
@@ -404,7 +407,10 @@ class ApiService {
           return {'success': true, 'data': responseData};
         }
       } else {
-        return {'success': false, 'error': 'HTTP ${response.statusCode}: $responseData'};
+        return {
+          'success': false,
+          'error': 'HTTP ${response.statusCode}: $responseData',
+        };
       }
     } catch (e) {
       _logError('Error creating product: $e');
@@ -426,7 +432,7 @@ class ApiService {
   }) async {
     try {
       _log('Updating product ID: $id');
-      
+
       var request = http.MultipartRequest(
         'PUT',
         Uri.parse('$baseUrl/admin/products/update/$id/'),
@@ -449,18 +455,20 @@ class ApiService {
       // Add image file if selected
       if (imageFile != null) {
         final bytes = await imageFile.readAsBytes();
-        request.files.add(http.MultipartFile.fromBytes(
-          'image',
-          bytes,
-          filename: imageFile.name,
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            bytes,
+            filename: imageFile.name,
+          ),
+        );
       }
 
       final response = await request.send();
       final responseData = await response.stream.bytesToString();
-      
+
       _log('Update product response: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         try {
           final data = jsonDecode(responseData);
@@ -469,7 +477,10 @@ class ApiService {
           return {'success': true, 'data': responseData};
         }
       } else {
-        return {'success': false, 'error': 'HTTP ${response.statusCode}: $responseData'};
+        return {
+          'success': false,
+          'error': 'HTTP ${response.statusCode}: $responseData',
+        };
       }
     } catch (e) {
       _logError('Error updating product: $e');
@@ -543,15 +554,53 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/cart/remove/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "user_id": userId,
-          "product_id": productId,
-        }),
+        body: jsonEncode({"user_id": userId, "product_id": productId}),
       );
       return response.statusCode == 200;
     } catch (e) {
       _logError('Error removing from cart: $e');
       return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>> checkoutCart({
+    required int userId,
+    required List<int> productIds,
+    required Map<String, dynamic> shippingAddress,
+    required String paymentMethod,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/cart/checkout/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "user_id": userId,
+          "product_ids": productIds,
+          "shipping_address": shippingAddress,
+          "payment_method": paymentMethod,
+        }),
+      );
+
+      if (response.body.isEmpty) {
+        return {
+          'success': response.statusCode == 201,
+          'error': 'Empty response from server',
+        };
+      }
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 201) {
+        return {'success': true, 'data': data};
+      }
+
+      return {
+        'success': false,
+        'error': data['error'] ?? 'Checkout failed',
+        'data': data,
+      };
+    } catch (e) {
+      _logError('Error during checkout: $e');
+      return {'success': false, 'error': 'Network error: $e'};
     }
   }
 
@@ -577,10 +626,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/wishlist/add/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "user_id": userId,
-          "product_id": productId,
-        }),
+        body: jsonEncode({"user_id": userId, "product_id": productId}),
       );
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
@@ -597,10 +643,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/wishlist/remove/'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "user_id": userId,
-          "product_id": productId,
-        }),
+        body: jsonEncode({"user_id": userId, "product_id": productId}),
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -638,7 +681,9 @@ class ApiService {
 
   static Future<double> getExchangeRate() async {
     try {
-      final response = await http.get(Uri.parse('https://api.exchangerate-api.com/v4/latest/USD'));
+      final response = await http.get(
+        Uri.parse('https://api.exchangerate-api.com/v4/latest/USD'),
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['rates']['INR'] ?? 83.0;
@@ -664,7 +709,8 @@ class ApiService {
       } else if (response.statusCode == 404) {
         return {
           'success': false,
-          'error': 'Categories endpoint not found on the server. Deploy the latest backend changes.',
+          'error':
+              'Categories endpoint not found on the server. Deploy the latest backend changes.',
         };
       } else {
         return {
@@ -703,7 +749,8 @@ class ApiService {
       } else if (response.statusCode == 404) {
         return {
           'success': false,
-          'error': 'Create category endpoint not found on the server. Deploy the latest backend changes.',
+          'error':
+              'Create category endpoint not found on the server. Deploy the latest backend changes.',
         };
       } else {
         return {
@@ -731,7 +778,8 @@ class ApiService {
       } else if (response.statusCode == 404) {
         return {
           'success': false,
-          'error': 'Delete category endpoint not found on the server. Deploy the latest backend changes.',
+          'error':
+              'Delete category endpoint not found on the server. Deploy the latest backend changes.',
         };
       } else {
         return {

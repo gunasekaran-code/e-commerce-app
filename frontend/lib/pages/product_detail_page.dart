@@ -382,13 +382,23 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     child: ElevatedButton.icon(
                       onPressed: product!.isInStock
                           ? () async {
-                              bool success = await ApiService.addToCart(
+                              final productId = product!.id;
+                              final success = await ApiService.addToCart(
                                 userId: widget.userData['id'],
-                                productId: product!.id,
+                                productId: productId,
                               );
 
-                              if (success && mounted) {
-                                CartService().notifyCartChange(CartChangeEvent(productId: product!.id, isAdded: true));
+                              if (!context.mounted) {
+                                return;
+                              }
+
+                              if (success) {
+                                CartService().notifyCartChange(
+                                  CartChangeEvent(
+                                    productId: productId,
+                                    isAdded: true,
+                                  ),
+                                );
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Added to cart!'),
@@ -396,10 +406,16 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
-                              } else if (mounted) {
+                              } else {
+                                await fetchData();
+                                if (!context.mounted) {
+                                  return;
+                                }
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Failed to add to cart'),
+                                    content: Text(
+                                      'Failed to add to cart. Stock may have changed.',
+                                    ),
                                     backgroundColor: kBrandRed,
                                     behavior: SnackBarBehavior.floating,
                                   ),

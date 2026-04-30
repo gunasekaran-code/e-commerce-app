@@ -118,8 +118,9 @@ class _WishlistPageState extends State<WishlistPage> {
         productId: productId,
       );
 
+      // 1. Change the throw message to be user-friendly
       if (!success) {
-        throw 'Unable to add item to cart';
+        throw 'This product is currently out of stock.';
       }
 
       final removed = await ApiService.removeFromWishlist(
@@ -145,7 +146,7 @@ class _WishlistPageState extends State<WishlistPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: kBrandRed,
+            backgroundColor: Colors.green, // Success is usually green, not red!
             content: const Text(
               'Moved to cart',
               style: TextStyle(color: Colors.white),
@@ -162,13 +163,27 @@ class _WishlistPageState extends State<WishlistPage> {
       }
     } catch (e) {
       if (mounted) {
+        // 2. Clean up the error string so it doesn't say "Error: Exception: ..."
+        String errorMessage = e.toString();
+        
+        // Remove the "Exception: " prefix if Dart adds it
+        if (errorMessage.startsWith('Exception: ')) {
+          errorMessage = errorMessage.replaceFirst('Exception: ', '');
+        } else if (errorMessage.startsWith('Error: ')) {
+           errorMessage = errorMessage.replaceFirst('Error: ', '');
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: kBrandRed, content: Text('Error: $e')),
+          SnackBar(
+            backgroundColor: kBrandRed, 
+            content: Text(errorMessage), // Now it will cleanly say "This product is currently out of stock."
+            duration: const Duration(seconds: 2), // Added a duration so it dismisses
+          ),
         );
       }
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
